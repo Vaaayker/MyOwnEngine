@@ -1,7 +1,8 @@
 # Developing engine
 
-### Мета 
-Репозиторій є навчальним, з метою набути навичок та знань по основним елементам розробки рушію: організація проекту, фундамент рендерингу сцен, рух об'єктів і камери, використання математики в коді, покращення навичок в Git.
+### Aim of repo
+This repository is learning project aim at taking skills and improove knowledge in the core elements of engine development: project organization, foundation of scene rendering, object and camera movement, use of mathematics in code,  improving Git skills.
 
-### Робота з репо
-Робота відбувається на конкретних невеликих задачах, де на кожне завдання: issue -> branch -> pr -> merge.
+
+### Rule for working with the repository
+Work is done through small tasks, where for each task the process devide: issue - branch - pull request - merge.
