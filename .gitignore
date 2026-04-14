@@ -1,3 +1,7 @@
+# execitable files
+bin/
+main
+
 # Prerequisites
 *.d
 
