@@ -1,25 +1,34 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 
-void funcinit()
+int main()
 {
    SDL_Init(SDL_INIT_VIDEO);
 
-   SDL_Window* window = SDL_CreateWindow("Engine", 800, 1200, 0);
+   SDL_Window* window = SDL_CreateWindow("Engine", 1200, 800, 0);
    SDL_Renderer* renderer = SDL_CreateRenderer(window, NULL);
 
-   SDL_Event event;
+   bool StillRunning = true;
 
-   if(event.type == SDL_EVENT_QUIT)
+   while(StillRunning)
    {
-        SDL_DestroyRenderer(renderer);
-        SDL_DestroyWindow(window);
-        SDL_Quit();
-   }
-}
+        SDL_Event event;
+        while (SDL_PollEvent(&event))
+        {
+            if(event.type == SDL_EVENT_QUIT)
+            {
+                StillRunning = false;  
+            }
+        }
 
-int main()
-{
-    funcinit();
+        SDL_SetRenderDrawColor(renderer, 100, 50, 50, 255); 
+        SDL_RenderClear(renderer);
+        SDL_RenderPresent(renderer);
+   }
+
+    SDL_DestroyRenderer(renderer);
+    SDL_DestroyWindow(window);
+    SDL_Quit();
+
     return 0;
 }
