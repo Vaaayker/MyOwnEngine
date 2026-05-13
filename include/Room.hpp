@@ -1,12 +1,16 @@
-сlass Room
+#pragma once
+
+class Room
 {
 private:
     float width;
     float height;
     float depth;
-    float[3][3] modelMatrix;
+    float modelMatrix[4][4];
 
 public:
-    void AddElementMatrix(int cols, int rows, float num);
+    void AddElementMatrix();
+    void SetMatrix();
+    Room();
 
 };
