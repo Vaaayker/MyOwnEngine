@@ -9,8 +9,7 @@ private:
     float modelMatrix[4][4];
 
 public:
-    void AddElementMatrix();
-    void SetMatrix();
+    void AddElementModelMatrix();
+    void SetModelMatrix();
     Room();
-
 };
