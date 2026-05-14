@@ -5,18 +5,18 @@ Room::Room()
     width = 10.0f;
     height = 5.0f;
     depth = 7.0f;
-    SetMatrix();
-    AddElementMatrix();
+    SetModelMatrix();
+    AddElementModelMatrix();
 }
 
-void Room::AddElementMatrix()
+void Room::AddElementModelMatrix()
 {
     modelMatrix[0][0] = width;
     modelMatrix[1][1] = height;
     modelMatrix[2][2] = depth;
 }
 
-void Room::SetMatrix()
+void Room::SetModelMatrix()
 {
     for(int rows = 0; rows < 4; rows++)
     {
