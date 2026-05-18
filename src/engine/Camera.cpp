@@ -12,7 +12,6 @@ Camera::Camera()
 
 void Camera::SetViewMatrix()
 {
-    // додати вектор зсуву
     Vec3 widthDirect = {10.0f, 0, 0};
     Vec3 heightDirect = {0, 5.0f, 0};
     Vec3 depthDirect = {0, 0, 7.0f};
@@ -28,7 +27,7 @@ void Camera::SetViewMatrix()
     {
         for(int rows = 0; rows < 4; rows++)
         {
-            viewMatrix[cols][rows] = tempViewMatrix[cols][rows];
+            viewMatrix.mat[cols][rows] = tempViewMatrix[cols][rows];
         }
     }
 }

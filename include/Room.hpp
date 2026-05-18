@@ -1,3 +1,4 @@
+#include "mat4.hpp"
 #pragma once
 
 class Room
@@ -6,10 +7,9 @@ private:
     float width;
     float height;
     float depth;
-    float modelMatrix[4][4];
+    mat4 modelMatrix;
 
 public:
     void AddElementModelMatrix();
-    void SetModelMatrix();
     Room();
 };

@@ -1,8 +1,11 @@
-SRC = src/engine/main.cpp
-FLAGS = -Wl,-rpath
-RPATH = /Users/bereznakmaksim/Documents/devProjects/MyOwnEngine/external
-IFLAGS = include/
+SRC = src/engine/*.cpp \
+      src/engine/math/*.cpp
+FLAGS = -Fexternal -framework SDL3 
+RPATH = -Wl,-rpath,/Users/bereznakmaksim/Documents/devProjects/MyOwnEngine/external
+IFLAGS = -Iinclude/ \
+		 -Iinclude/math
+
 
 all:
-	clang++ $(SRC) -I$(IFLAGS) -Fexternal -framework SDL3 $(FLAGS) $(RPATH) -o bin/main
+	clang++ $(SRC) $(IFLAGS)  $(FLAGS) $(RPATH) -o bin/main
 
