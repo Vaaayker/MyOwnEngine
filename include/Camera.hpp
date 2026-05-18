@@ -1,6 +1,7 @@
 #pragma once
 #include "Vec3.hpp"
 #include "Point3D.hpp"
+#include "mat4.hpp"
 
 class Camera
 {
@@ -11,7 +12,7 @@ private:
     Vec3 directView;
     Vec3 directUP;
     Vec3 directWidth;
-    float viewMatrix[4][4];
+    mat4 viewMatrix;
 
 public:
     Camera();
