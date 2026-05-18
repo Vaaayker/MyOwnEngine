@@ -1,13 +1,22 @@
 #include "Camera.hpp"
+#include <cmath>
 
 Camera::Camera()
 {
     pointView = {6.0f, 1.0f, 3.5f};
     pointUP = {5.0f, 2.0f, 3.5f};
     position = {5.0f, 1.0f, 3.5f};
+
     directView = Vec3::Normalize(Point3D::MakeVec(position, pointView));
     directUP = Vec3::Normalize(Point3D::MakeVec(position, pointUP)); 
     directWidth = Vec3::Cross(directView, directUP);
+
+    FieldOfViewAngle = 90.0f;
+    NearPlane = 0.1f;
+    FarPlane = 10.0f;
+    Aspect = 1200 / 800;
+
+    SetProjectionMatrix();
 }
 
 void Camera::SetViewMatrix()
@@ -30,4 +39,13 @@ void Camera::SetViewMatrix()
             viewMatrix.mat[cols][rows] = tempViewMatrix[cols][rows];
         }
     }
+}
+
+void Camera::SetProjectionMatrix()
+{
+    projectionMatrix.mat[0][0] = 1 / (Aspect * tan(FieldOfViewAngle / 2)); // Зміна розміра пікселів у ширину згідно розширення
+    projectionMatrix.mat[1][1] = 1 / tan(FieldOfViewAngle / 2); // Половина висоти
+    projectionMatrix.mat[2][2] = FarPlane / (FarPlane - NearPlane); // Near plane = 0
+    projectionMatrix.mat[2][3] = (NearPlane * FarPlane) / (NearPlane - FarPlane); // Far plane = 1
+    projectionMatrix.mat[3][2] = 1; // Однорідна координата
 }
