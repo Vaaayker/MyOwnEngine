@@ -1,4 +1,3 @@
-#pragma once
 #include "Vec4.hpp"
 
 Vec4 Vec4::makeDirectionVec4(Vec3 vec3)

@@ -1,8 +1,11 @@
 SRC = src/engine/*.cpp \
-      src/engine/math/*.cpp
+      src/math/*.cpp \
+	  src/vulkan/*.cpp \
+	  src/main.cpp
 
-INCLUDE = -I include/ \
-		 -I include/math	\
+INCLUDE = -I include/engine \
+		 -I include/math \
+		 -I include/vulkan \
 		 -I /Users/bereznakmaksim/VulkanSDK/1.4.350.0/macOS/include
 
 FLAGS = -F external -framework SDL3 \
@@ -11,6 +14,9 @@ FLAGS = -F external -framework SDL3 \
 RPATH = -Wl,-rpath,/Users/bereznakmaksim/Documents/devProjects/MyOwnEngine/external \
 			-Wl,-rpath,/Users/bereznakmaksim/VulkanSDK/1.4.350.0/macOS/lib
 
-all:
-	clang++ $(SRC) $(INCLUDE)  $(FLAGS) $(RPATH) -o bin/main
+debug:
+	clang++ -std=c++17 $(SRC) $(INCLUDE)  -g -O0 $(FLAGS) $(RPATH) -o bin/main
+
+release:
+	clang++ -std=c++17 $(SRC) $(INCLUDE)  -O2 -NDEBUG $(FLAGS) $(RPATH) -o bin/main
 

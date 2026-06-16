@@ -1,11 +1,12 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
+#include <SDL3/SDL_vulkan.h>
 
 int main()
 {
    SDL_Init(SDL_INIT_VIDEO);
 
-   SDL_Window* window = SDL_CreateWindow("Engine", 1200, 800, 0);
+   SDL_Window* window = SDL_CreateWindow("Engine", 1200, 800, SDL_WINDOW_VULKAN);
    SDL_Renderer* renderer = SDL_CreateRenderer(window, NULL);
 
    bool StillRunning = true;
