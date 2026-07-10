@@ -1,33 +1,42 @@
+#include "vulkan/vulkan.hpp"
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 #include <SDL3/SDL_vulkan.h>
+#include "VulkanContext.hpp"
+
+VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
 
 int main()
 {
-   SDL_Init(SDL_INIT_VIDEO);
+    vk::detail::DynamicLoader dl;
 
-   SDL_Window* window = SDL_CreateWindow("Engine", 1200, 800, SDL_WINDOW_VULKAN);
-   SDL_Renderer* renderer = SDL_CreateRenderer(window, NULL);
+    PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr = dl.getProcAddress<PFN_vkGetInstanceProcAddr>("vkGetInstanceProcAddr");
 
-   bool StillRunning = true;
+    SDL_Init(SDL_INIT_VIDEO);
 
-   while(StillRunning)
-   {
-        SDL_Event event;
-        while (SDL_PollEvent(&event))
-        {
-            if(event.type == SDL_EVENT_QUIT)
+    SDL_Window* window = SDL_CreateWindow("Engine", 1200, 800, SDL_WINDOW_VULKAN);
+
+    VULKAN_HPP_DEFAULT_DISPATCHER.init(vkGetInstanceProcAddr);
+
+    VulkanContext context;
+    context.Create(window);
+
+    bool StillRunning = true;
+
+    while(StillRunning)
+    {
+            SDL_Event event;
+            while (SDL_PollEvent(&event))
             {
-                StillRunning = false;  
+                if(event.type == SDL_EVENT_QUIT)
+                {
+                    StillRunning = false;  
+                }
             }
-        }
 
-        SDL_SetRenderDrawColor(renderer, 100, 50, 50, 255); 
-        SDL_RenderClear(renderer);
-        SDL_RenderPresent(renderer);
-   }
+    }
 
-    SDL_DestroyRenderer(renderer);
+    context.Destroy();
     SDL_DestroyWindow(window);
     SDL_Quit();
 

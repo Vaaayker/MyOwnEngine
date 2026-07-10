@@ -15,8 +15,8 @@ RPATH = -Wl,-rpath,/Users/bereznakmaksim/Documents/devProjects/MyOwnEngine/exter
 			-Wl,-rpath,/Users/bereznakmaksim/VulkanSDK/1.4.350.0/macOS/lib
 
 debug:
-	clang++ -std=c++17 $(SRC) $(INCLUDE)  -g -O0 $(FLAGS) $(RPATH) -o bin/main
+	clang++ -std=c++17 $(SRC) $(INCLUDE)  -g -O0 $(FLAGS) $(RPATH) -o bin/main -DVULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1
 
 release:
-	clang++ -std=c++17 $(SRC) $(INCLUDE)  -O2 -NDEBUG $(FLAGS) $(RPATH) -o bin/main
+	clang++ -std=c++17 $(SRC) $(INCLUDE)  -O2  -DNDEBUG $(FLAGS) $(RPATH) -o bin/main -DVULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1
 

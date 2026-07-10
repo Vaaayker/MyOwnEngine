@@ -1,157 +1,112 @@
 #include "Swapchain.hpp"
+#include "VulkanContext.hpp"
+#include <cassert>
 #include <algorithm>
+#include <limits>
 
-SwapchainSupportDetails Swapchain::QuerySwapchainSupport(VkPhysicalDevice device)
+
+Swapchain::~Swapchain()
 {
-    SwapchainSupportDetails details;
-
-    vkGetPhysicalDeviceSurfaceCapabilitesKHR(device, surface, &details.capabilities);
-
-    uint32_t formatCount;
-    vkGetPhysicalDeviceSurfaceCapabilitesKHR(device, surface, &formatCount, details.formats.data());
-
-    uint32_t presentModeCount;
-    vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &presentModeCount, details.presentModes.data());
-
-    return details;
+    Destroy();
 }
 
-VkSurfaceFormatKHR Swapchain::ChooseSwapSurfaceFormat(const vector<VkSurfaceFormatKHR>& availableFormats)
+void Swapchain::Create(const VulkanContext& context, SDL_Window* window)
 {
-    for()
+    // Define Borowed Handle   
+    surface = context.GetSurface();
+    physicalDevice = context.GetPhysicalDevice();
+    device = context.GetDevice();
+
+    surfaceCapabilities = physicalDevice.getSurfaceCapabilitiesKHR( surface );
+    availableFormats = physicalDevice.getSurfaceFormatsKHR( surface );
+    supportedPresentMode = physicalDevice.getSurfacePresentModesKHR( surface );
+
+    swapChainSurfaceFormat = CorrectFormat(availableFormats);
+    swapChainExtent = chooseSwapExtent(surfaceCapabilities, window);
+    minImageCount = chooseSwapMinImageCount(surfaceCapabilities);
+
+    vk::SwapchainCreateInfoKHR  swapChainCreateInfo{};
+
+    swapChainCreateInfo.surface = surface;
+    swapChainCreateInfo.minImageCount = minImageCount;
+    swapChainCreateInfo.imageFormat = swapChainSurfaceFormat.format;
+    swapChainCreateInfo.imageColorSpace = swapChainSurfaceFormat.colorSpace;
+    swapChainCreateInfo.imageExtent = swapChainExtent;
+    swapChainCreateInfo.imageArrayLayers = 1;
+    swapChainCreateInfo.imageUsage = vk::ImageUsageFlagBits::eColorAttachment;
+    swapChainCreateInfo.imageSharingMode = vk::SharingMode::eExclusive;
+    swapChainCreateInfo.preTransform = surfaceCapabilities.currentTransform;
+    swapChainCreateInfo.compositeAlpha = vk::CompositeAlphaFlagBitsKHR::eOpaque;
+    swapChainCreateInfo.presentMode = chooseSwapPresentMode(supportedPresentMode);
+    swapChainCreateInfo.clipped = true;
+    
+    swapChain = device.createSwapchainKHR(swapChainCreateInfo);
+    swapChainImages = device.getSwapchainImagesKHR(swapChain);
+}
+
+void Swapchain::Destroy()
+{
+    if(swapChain)
     {
-        if(availableFormats.format == VK_FORMAT_B8G8R8A8_SRGB &&
-           availableFormats.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
+        device.destroySwapchainKHR(swapChain);
+        swapChain = nullptr;
+    }
+}
+
+vk::SurfaceFormatKHR Swapchain::CorrectFormat(const std::vector<vk::SurfaceFormatKHR>& availableFormats)
+{
+    assert(!availableFormats.empty());
+
+   for(size_t i = 0; i < availableFormats.size(); i++)
+   {
+        if(availableFormats[i].format == vk::Format::eB8G8R8A8Srgb && availableFormats[i].colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear)
         {
-            return availableFormats;
+            return availableFormats[i];
+        }
+   } 
+
+   return availableFormats[0];
+}
+
+
+vk::PresentModeKHR Swapchain::chooseSwapPresentMode(const std::vector<vk::PresentModeKHR>& availablePresentModes)
+{
+    for(size_t i = 0; i < availablePresentModes.size(); i++)
+    {
+        if(availablePresentModes[i] == vk::PresentModeKHR::eMailbox)
+        {
+            return availablePresentModes[i];
         }
     }
-    return availableFormats[0];
+
+    return vk::PresentModeKHR::eFifo;
 }
 
-VkPresentModeKHR Swapchain::ChooseSwapPresentMode(const vector<VkPresentModeKHR>& availablePresentModes)
+
+vk::Extent2D Swapchain::chooseSwapExtent(const vk::SurfaceCapabilitiesKHR& capabilities, SDL_Window* window)
 {
-    for()
+    if(capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max())
     {
-        if(availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR)
-        {
-            return availablePresentMode;
-        }
-        return VK_PRESENT_MODE_FIFO_KHR;
+        return capabilities.currentExtent;
     }
-}
 
-// extent - розмір swapchain images
-VkExtent2D Swapchain::ChooseSwapExtent(const vkGetPhysicalDeviceSurfaceCapabilitesKHR& capabilities, SDL_Window* window)
-{
-    int width;
-    int height;
+    int width = 0, height = 0;
+    SDL_GetWindowSizeInPixels(window, &width, &height);
 
-    SDL_GetWindowSizeInPizels(window, &width, &height);
-
-    VkExtent2D actualExtent = { static_cast<uint32_t>(width), static_cast<uint32_t>(height)};
-
-    actualExtent.width = clamp(actualExtent.width, capabilities.minImageExtent.width, capabilities.maxImageExtent.width);
-
-    actualExtent.height = clamp(actualExtent.height, capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
-
-    return actualExtent;
-}
-
-void Swapchain::CreateSwapchain(SDL_Window* window)
-{
-    // SwapchainSupportDetails swapchainSupport = QuerySwapchainSupport(physicalDevice);
-
-    // VkSurfaceFormatKHR surfaceFormat = ChooseSwapPresentMode(swapchainSupport.presentModes);
-
-    // VkPresentModeKHR presentMode = ChooseSwapPresentMode(swapchainSupport.presentModes);
-
-    // VkExtent2D extent = ChooseSwapExtent(swapchainSupport.capabilites, window);
-
-    // uint32_t imageCount = swapchainSupport.capabilites.minImageCount + 1;
-
-    // if(swapchainSupport.capabilities.maxImageCount > 0 && imageCount > swapchainSupport.capabilites.maxImageCount);
-    // {
-            //imageCount = swapchainSupport.capabilities.maxImageCount;
-    //  }
-
-    VkSwapchainCreateInfoKHR createInfo{};
-
-    createInfo.sType = ;
-    createInfo.surface = ;
-
-    createInfo.minImageCount = imageCount;
-    createInfo.imageFormat = surfaceFormat.format;
-    createInfo.imageColorSpace = surfaceFormat.colorSpace;
-    createInfo.imageExtent = extent;
-    createInfo.imageArrayLayers = 1;
-    createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-
-    uint32_t queueFamilyIndices[] = {
-        graphicsFamilyIndex,
-        presentFamilyIndex
+    return {
+        std::clamp<uint32_t>(static_cast<uint32_t>(width), capabilities.minImageExtent.width, capabilities.maxImageExtent.width),
+        std::clamp<uint32_t>(static_cast<uint32_t>(height), capabilities.minImageExtent.height, capabilities.maxImageExtent.height),
     };
-
-    if(graphicsFamilyIndex != presentFamilyIndex)
-    {
-        createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
-        createInfo.queueFamilyIndexCount = 2;
-        createInfo.pQueueFamiluIndices = queueFamilyIndices;
-    }
-    else
-    {
-        createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-        createInfo.queueFamilyIndexCount = 0;
-        createInfo.pQueueFamiluIndices = nullptr;
-    }
-
-    createInfo.preTransform = swapchainSupport.capabilites.curentTransform;
-
-    createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-
-    createInfo.presentMode = presentMode;
-    createInfo.clipped = VK_TRUE;
-
-    createInfo.oldSwapchain = VK_NULL_HANDLE;
-
-    // витягнути images
-    vkGetSwapchainImagesKHR(device, swapchain, &imageCount, swapchainImages.data());
-
-    swapchainImage.resize(imageCount);
-
-    vkGetSwapchainImagesKHR(device, swapchain, &imageCount, swapchainImages.data());
-
-    swapchainImageFormat = surfaceFormat.format;
-    swapchainExtent = extent;
 }
 
-void Swapchain::CreateImageViews()
+
+uint32_t Swapchain::chooseSwapMinImageCount(const vk::SurfaceCapabilitiesKHR& surfaceCapabilities)
 {
-    swapchainImageViews.resize(swapchainImages.size());
-
-    for(size_t i = 0; i < swapchainImages.size()l i++)
+    uint32_t minImageCount = std::max(3u, surfaceCapabilities.minImageCount);
+    if((0 < surfaceCapabilities.maxImageCount) && (surfaceCapabilities.maxImageCount < minImageCount))
     {
-        VkImageViewCreateInfo createInfo{};
-
-        createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        createInfo.image = swapchainImages[i];
-
-        createInfo.format = swapchainImageFormat;
-
-        createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-        createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-        createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-        createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;   
-     
-        createInfo.subresourceRange.baseMipLevel = 0;
-        createInfo.subresourceRange.levelCount = 1;
-
-        createInfo.subresourceRange.baseArrayLayer = 0;
-        createInfo.subresourceRange.layerCount = 1;
-        
-        
+        minImageCount = surfaceCapabilities.maxImageCount;
     }
+    return minImageCount;
 }
-
-
 
