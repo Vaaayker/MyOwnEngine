@@ -1,191 +1,261 @@
 #include "VulkanContext.hpp"
-#include "vector"
 #include <SDL3/SDL_vulkan.h>
 #include "ConfigLayer.hpp"
-using namespace std;
+#include <cstring>
+#include <stdexcept>
+
+VulkanContext::~VulkanContext()
+{
+    Destroy();
+}
+
+void VulkanContext::Create(SDL_Window* window)
+{
+    CreateInstanceAndSurface(window);
+
+    PickPhysicalDevice();
+    GetGraphicQueueProperties();
+
+    GetPresentQueueProperties();
+    PickDevice();
+
+    GraphicsQueue();
+    PresentQueue();
+
+    swapchain.Create(*this, window);
+
+    #ifndef NDEBUG
+        debugMessenger.Create(*this);
+    #endif
+}
+
+void VulkanContext::Destroy()
+{
+    if(device)
+    {
+        device.waitIdle();
+    }
+
+    #ifndef NDEBUG
+        debugMessenger.Destroy();
+    #endif
+
+    swapchain.Destroy();
+
+    if(device)
+    {
+        device.destroy();
+        device = nullptr;
+    }
+
+    if(surface)
+    {
+        instance.destroySurfaceKHR(surface);
+        surface = nullptr;
+    }
+
+    if(instance)
+    {
+        instance.destroy();
+        instance = nullptr;    
+    }
+}
 
 void VulkanContext::CreateInstanceAndSurface(SDL_Window* window)
 {
-    VkInstanceCreateInfo createInfo{};
+    vk::InstanceCreateInfo createInfo{};
 
-    createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-    createInfo.pNext = nullptr;
-    createInfo.flags = VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
-    createInfo.pApplicationInfo = nullptr;
+    createInfo.sType = vk::StructureType::eInstanceCreateInfo; 
+    createInfo.flags = vk::InstanceCreateFlagBits::eEnumeratePortabilityKHR; 
 
-    bool result = CheckValidationLayerSupport();
-
-    if(enableValidationLayers && result)
+    if(enableValidationLayers)
     {
-        uint32_t layerCount = validationLayers.size();
-        createInfo.enabledLayerCount = layerCount;
+        if(!CheckValidationLayerSupport()) throw std::runtime_error("Validation layers requested, but not available");
+ 
+        createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
         createInfo.ppEnabledLayerNames = validationLayers.data();      
-    }
-    else
-    {
-        createInfo.enabledLayerCount = 0;
-        createInfo.ppEnabledLayerNames = nullptr;
     }
 
     uint32_t extensionCount = 0;
-    const char* const* extensions = SDL_Vulkan_GetInstanceExtensions(&extensionCount);
+    const char* const* sdlExtensions = SDL_Vulkan_GetInstanceExtensions(&extensionCount);
 
-    createInfo.enabledExtensionCount = extensionCount;
-    createInfo.ppEnabledExtensionNames = extensions;
+    if (!sdlExtensions) { throw std::runtime_error(SDL_GetError()); }
+
+    std::vector<const char*> extensions(sdlExtensions, sdlExtensions + extensionCount);
+
+    extensions.push_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
+    extensions.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
+
+    #ifndef NDEBUG
+        extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+    #endif
+
+    createInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
+    createInfo.ppEnabledExtensionNames = extensions.data();
     
-    vkCreateInstance(&createInfo, nullptr, &instance);
+    instance = vk::createInstance(createInfo);
 
-    SDL_Vulkan_CreateSurface(window, instance, nullptr, &surface);
+    VULKAN_HPP_DEFAULT_DISPATCHER.init(instance);
+
+    VkSurfaceKHR rawSurface = nullptr;
+
+    if (!SDL_Vulkan_CreateSurface(window, instance, nullptr, &rawSurface)) { throw std::runtime_error(SDL_GetError()); }
+
+    surface = rawSurface;
 }
 
 bool VulkanContext::CheckValidationLayerSupport()
 {
-    uint32_t layerCount = 0;
+    std::vector<vk::LayerProperties> availableLayers = vk::enumerateInstanceLayerProperties();
 
-    vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
-
-    vector<VkLayerProperties> availableLayers(layerCount);
-
-    vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
-
-    bool layerFound = false;
-
-    for(int i = 0; i < layerCount; i++)
+    for(size_t layerIndex = 0; layerIndex < validationLayers.size(); layerIndex++)
     {
-        if(strcmp(validationLayers[0], availableLayers[i].layerName) == 0)
+        bool layerFound = false;
+        for(size_t availableLayersIndex = 0; availableLayersIndex < availableLayers.size(); availableLayersIndex++)
         {
-            layerFound = true;
-            break;
-        }        
+            if(std::strcmp(validationLayers[layerIndex], availableLayers[availableLayersIndex].layerName) == 0)
+            {
+                layerFound = true;
+                break;
+            }  
+        }
+        if(!layerFound)
+        {
+            return false;
+        }
     }
-
-    if(layerFound)
-    {
-        return true;
-    }
-
-    return false;
+    return true;
 }
 
 void VulkanContext::PickPhysicalDevice()
 {
-    uint32_t physicalDeviceCount = 1;
-    VkPhysicalDevice *pPhysicalDevices;
-    vkEnumeratePhysicalDevices(instance, &physicalDeviceCount, nullptr);
-    vector<VkPhysicalDevice> physicalDevice(physicalDeviceCount);
-    vkEnumeratePhysicalDevices(instance, &physicalDeviceCount, physicalDevice.data());
+    std::vector<vk::PhysicalDevice> physicalDevices = instance.enumeratePhysicalDevices();
+
+    if(physicalDevices.empty())
+    {
+        throw std::runtime_error("Failed to find GPUs with Vulkan support");
+    }
+
+    physicalDevice = physicalDevices[0];
 }
 
 
 
 int32_t VulkanContext::GetGraphicQueueProperties()
 {
-    VkPhysicalDevice physicalDevice; 
+    std::vector<vk::QueueFamilyProperties> queueFamilies = physicalDevice.getQueueFamilyProperties();
 
-    uint32_t queueFamilyCount = 0;
-
-    vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, nullptr);
-
-    vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
-
-    vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, queueFamilies.data());
-
-    uint32_t graphicsFamilyIndex = 0;
-
-    for (uint32_t i = 0; i < queueFamilyCount; i++)
+    for(uint32_t i = 0; i < queueFamilies.size(); i++)
     {
-        if (queueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)
+        if(queueFamilies[i].queueFlags & vk::QueueFlagBits::eGraphics)
         {
-            graphicsFamilyIndex = i;
-            return i;
+            return static_cast<int32_t>(i);
         }
     }
 
-    return 0;
+    return -1;
 }
 
 int32_t VulkanContext::GetPresentQueueProperties()
 {
-    VkPhysicalDevice physicalDevice;
-    uint32_t queueFamilyCount = 0;
+    std::vector<vk::QueueFamilyProperties> queueFamilies = physicalDevice.getQueueFamilyProperties();
 
-    vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, nullptr);
-
-    vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
-
-    vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, queueFamilies.data());
-
-    uint32_t presentFamilyIndex = 0;
-    VkBool32 presentSupport = false;
-
-    for(int32_t i = 0; i < queueFamilyCount; i++)
+    for(uint32_t i = 0; i < queueFamilies.size(); i++)
     {
-        vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, i, surface, &presentSupport);
+        vk::Bool32 presentSupport = physicalDevice.getSurfaceSupportKHR(i, surface);
 
         if(presentSupport)
         {
-            presentFamilyIndex = i;
-            return i;
+            return static_cast<uint32_t>(i);
         }
     }
 
-    return 0;
+    return -1;
 }
 
 void VulkanContext::PickDevice()
 {
-    VkDeviceQueueCreateInfo queueCreateInfo{};
+    int32_t graphicsFamilyIndex = GetGraphicQueueProperties();
+    int32_t presentFamilyIndex = GetPresentQueueProperties();
+
+    if (graphicsFamilyIndex == -1)
+    {
+        throw std::runtime_error("Failed to find graphics queue family");
+    }
+
+    if (presentFamilyIndex == -1)
+    {
+        throw std::runtime_error("Failed to find present queue family");
+    }
 
     float queuePriority = 1.0f;
-    uint32_t graphicsFamilyIndex = GetGraphicQueueProperties(); 
 
-    queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-    queueCreateInfo.pNext = nullptr;
-    queueCreateInfo.flags = 0;
-    queueCreateInfo.queueFamilyIndex = graphicsFamilyIndex;
-    queueCreateInfo.queueCount = 1;
-    queueCreateInfo.pQueuePriorities = &queuePriority;
+    std::vector<vk::DeviceQueueCreateInfo> queueCreateInfos;
 
+    vk::DeviceQueueCreateInfo graphicsQueueCreateInfo{};
+    graphicsQueueCreateInfo.queueFamilyIndex = static_cast<uint32_t>(graphicsFamilyIndex);
+    graphicsQueueCreateInfo.queueCount = 1;
+    graphicsQueueCreateInfo.pQueuePriorities = &queuePriority;
 
-    VkDeviceCreateInfo deviceCreateInfo{};
+    queueCreateInfos.push_back(graphicsQueueCreateInfo);
 
-    deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-    deviceCreateInfo.pNext = nullptr;
-    deviceCreateInfo.flags = 0;
-    deviceCreateInfo.queueCreateInfoCount = 1;
-    deviceCreateInfo.pQueueCreateInfos = &queueCreateInfo;
-    deviceCreateInfo.enabledLayerCount = 0;
-    deviceCreateInfo.ppEnabledLayerNames = nullptr;
-    deviceCreateInfo.enabledExtensionCount = 0;
-    deviceCreateInfo.ppEnabledExtensionNames = nullptr;
-    deviceCreateInfo.ppEnabledExtensionNames = 0;
+    if (presentFamilyIndex != graphicsFamilyIndex)
+    {
+        vk::DeviceQueueCreateInfo presentQueueCreateInfo{};
+        presentQueueCreateInfo.queueFamilyIndex = static_cast<uint32_t>(presentFamilyIndex);
+        presentQueueCreateInfo.queueCount = 1;
+        presentQueueCreateInfo.pQueuePriorities = &queuePriority;
+
+        queueCreateInfos.push_back(presentQueueCreateInfo);
+    }
+
+    std::vector<const char*> requiredDeviceExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
+
+    requiredDeviceExtensions.push_back("VK_KHR_portability_subset");
+
+    vk::DeviceCreateInfo deviceCreateInfo{};
+    deviceCreateInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
+    deviceCreateInfo.pQueueCreateInfos = queueCreateInfos.data();
+
+    deviceCreateInfo.enabledExtensionCount = static_cast<uint32_t>(requiredDeviceExtensions.size());
+    deviceCreateInfo.ppEnabledExtensionNames = requiredDeviceExtensions.data();
+
     deviceCreateInfo.pEnabledFeatures = nullptr;
 
-    vkCreateDevice(physicalDevice, &deviceCreateInfo, nullptr, &device);
+    device = physicalDevice.createDevice(deviceCreateInfo);
 }
 
 void VulkanContext::GraphicsQueue()
 {
-    uint32_t graphicsFamilyIndex = GetGraphicQueueProperties();
+    uint32_t graphicsFamilyIndex = static_cast<uint32_t>(GetGraphicQueueProperties());
 
-    vkGetDeviceQueue(device, graphicsFamilyIndex, 0, &graphicsQueue);
+    graphicsQueue = device.getQueue(graphicsFamilyIndex, 0);
 }
 
 void VulkanContext::PresentQueue()
 {
-    uint32_t graphicsFamilyIndex = GetPresentQueueProperties();
+    uint32_t presentFamilyIndex = static_cast<uint32_t>(GetPresentQueueProperties());
 
-    vkGetDeviceQueue(device, graphicsFamilyIndex, 0, &presentQueue);
+    presentQueue = device.getQueue(presentFamilyIndex, 0);
 }
 
-VulkanContext::VulkanContext(SDL_Window* window)
+vk::Instance VulkanContext::GetInstance() const
 {
-    CreateInstanceAndSurface(window);
-    CheckValidationLayerSupport();
-    PickPhysicalDevice();
-    GetGraphicQueueProperties();
-    GetPresentQueueProperties();
-    PickDevice();
-    GraphicsQueue();
-    PresentQueue();
+    return instance;
 }
+
+vk::SurfaceKHR VulkanContext::GetSurface() const
+{
+    return surface;
+}
+
+vk::PhysicalDevice VulkanContext::GetPhysicalDevice() const
+{
+    return physicalDevice;
+}
+
+vk::Device VulkanContext::GetDevice() const
+{
+    return device;
+}
+
