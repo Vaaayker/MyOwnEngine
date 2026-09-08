@@ -4,29 +4,30 @@
 #include <cstring>
 #include <stdexcept>
 
-VulkanContext::~VulkanContext()
-{
-    Destroy();
-}
-
 void VulkanContext::Create(SDL_Window* window)
 {
     CreateInstanceAndSurface(window);
 
-    PickPhysicalDevice();
-    GetGraphicQueueProperties();
+#ifndef NDEBUG
+    debugMessenger.Create(*this);
+#endif
 
+    PickPhysicalDevice();
+
+    GetGraphicQueueProperties();
     GetPresentQueueProperties();
+
     PickDevice();
 
     GraphicsQueue();
     PresentQueue();
 
     swapchain.Create(*this, window);
+    pool.Create(*this);
+    sync.Create(*this, swapchain);
+    pipeline.Create(swapchain, *this);
+    renderer.Create(*this, swapchain, pipeline, pool, sync);
 
-    #ifndef NDEBUG
-        debugMessenger.Create(*this);
-    #endif
 }
 
 void VulkanContext::Destroy()
@@ -36,11 +37,17 @@ void VulkanContext::Destroy()
         device.waitIdle();
     }
 
+    renderer.Destroy();
+    pipeline.Destroy();
+    sync.Destroy();
+    pool.Destroy();
+    swapchain.Destroy();
+
     #ifndef NDEBUG
         debugMessenger.Destroy();
     #endif
 
-    swapchain.Destroy();
+
 
     if(device)
     {
@@ -90,15 +97,23 @@ void VulkanContext::CreateInstanceAndSurface(SDL_Window* window)
         extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
     #endif
 
+    vk::ApplicationInfo appInfo{};
+    appInfo.pApplicationName = "My App";
+    appInfo.applicationVersion = vk::makeApiVersion(0, 1, 0, 0);
+    appInfo.pEngineName = "My Engine";
+    appInfo.engineVersion = vk::makeApiVersion(0, 1, 0, 0);
+    appInfo.apiVersion = vk::ApiVersion13;
+
     createInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
     createInfo.ppEnabledExtensionNames = extensions.data();
+    createInfo.pApplicationInfo = &appInfo;
     
     instance = vk::createInstance(createInfo);
 
     VULKAN_HPP_DEFAULT_DISPATCHER.init(instance);
 
     VkSurfaceKHR rawSurface = nullptr;
-
+    
     if (!SDL_Vulkan_CreateSurface(window, instance, nullptr, &rawSurface)) { throw std::runtime_error(SDL_GetError()); }
 
     surface = rawSurface;
@@ -141,7 +156,7 @@ void VulkanContext::PickPhysicalDevice()
 
 
 
-int32_t VulkanContext::GetGraphicQueueProperties()
+void VulkanContext::GetGraphicQueueProperties()
 {
     std::vector<vk::QueueFamilyProperties> queueFamilies = physicalDevice.getQueueFamilyProperties();
 
@@ -149,14 +164,15 @@ int32_t VulkanContext::GetGraphicQueueProperties()
     {
         if(queueFamilies[i].queueFlags & vk::QueueFlagBits::eGraphics)
         {
-            return static_cast<int32_t>(i);
+            graphicsQueueFamilyIndex = i;
+            return ;
         }
     }
 
-    return -1;
+    throw std::runtime_error("Failed to find a graphics queue family");
 }
 
-int32_t VulkanContext::GetPresentQueueProperties()
+void VulkanContext::GetPresentQueueProperties()
 {
     std::vector<vk::QueueFamilyProperties> queueFamilies = physicalDevice.getQueueFamilyProperties();
 
@@ -166,43 +182,31 @@ int32_t VulkanContext::GetPresentQueueProperties()
 
         if(presentSupport)
         {
-            return static_cast<uint32_t>(i);
+            presentQueueFamilyIndex = i;
+            return ;
         }
     }
 
-    return -1;
+    throw std::runtime_error("Failed to find a present queue family");
 }
 
 void VulkanContext::PickDevice()
 {
-    int32_t graphicsFamilyIndex = GetGraphicQueueProperties();
-    int32_t presentFamilyIndex = GetPresentQueueProperties();
-
-    if (graphicsFamilyIndex == -1)
-    {
-        throw std::runtime_error("Failed to find graphics queue family");
-    }
-
-    if (presentFamilyIndex == -1)
-    {
-        throw std::runtime_error("Failed to find present queue family");
-    }
-
     float queuePriority = 1.0f;
 
     std::vector<vk::DeviceQueueCreateInfo> queueCreateInfos;
 
     vk::DeviceQueueCreateInfo graphicsQueueCreateInfo{};
-    graphicsQueueCreateInfo.queueFamilyIndex = static_cast<uint32_t>(graphicsFamilyIndex);
+    graphicsQueueCreateInfo.queueFamilyIndex = graphicsQueueFamilyIndex;
     graphicsQueueCreateInfo.queueCount = 1;
     graphicsQueueCreateInfo.pQueuePriorities = &queuePriority;
 
     queueCreateInfos.push_back(graphicsQueueCreateInfo);
 
-    if (presentFamilyIndex != graphicsFamilyIndex)
+    if (presentQueueFamilyIndex != graphicsQueueFamilyIndex)
     {
         vk::DeviceQueueCreateInfo presentQueueCreateInfo{};
-        presentQueueCreateInfo.queueFamilyIndex = static_cast<uint32_t>(presentFamilyIndex);
+        presentQueueCreateInfo.queueFamilyIndex = presentQueueFamilyIndex;
         presentQueueCreateInfo.queueCount = 1;
         presentQueueCreateInfo.pQueuePriorities = &queuePriority;
 
@@ -213,7 +217,15 @@ void VulkanContext::PickDevice()
 
     requiredDeviceExtensions.push_back("VK_KHR_portability_subset");
 
+    vk::PhysicalDeviceSynchronization2Features synchronization2Features{};
+    synchronization2Features.synchronization2 = vk::True;
+    if (!synchronization2Features.synchronization2)
+    {
+        throw std::runtime_error("Synchronization2 is not supported");
+    }
+
     vk::DeviceCreateInfo deviceCreateInfo{};
+    deviceCreateInfo.pNext = &synchronization2Features;
     deviceCreateInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
     deviceCreateInfo.pQueueCreateInfos = queueCreateInfos.data();
 
@@ -223,20 +235,18 @@ void VulkanContext::PickDevice()
     deviceCreateInfo.pEnabledFeatures = nullptr;
 
     device = physicalDevice.createDevice(deviceCreateInfo);
+
+    VULKAN_HPP_DEFAULT_DISPATCHER.init(device);
 }
 
 void VulkanContext::GraphicsQueue()
 {
-    uint32_t graphicsFamilyIndex = static_cast<uint32_t>(GetGraphicQueueProperties());
-
-    graphicsQueue = device.getQueue(graphicsFamilyIndex, 0);
+    graphicsQueue = device.getQueue(graphicsQueueFamilyIndex, 0);
 }
 
 void VulkanContext::PresentQueue()
 {
-    uint32_t presentFamilyIndex = static_cast<uint32_t>(GetPresentQueueProperties());
-
-    presentQueue = device.getQueue(presentFamilyIndex, 0);
+    presentQueue = device.getQueue(presentQueueFamilyIndex, 0);
 }
 
 vk::Instance VulkanContext::GetInstance() const
@@ -259,3 +269,23 @@ vk::Device VulkanContext::GetDevice() const
     return device;
 }
 
+std::uint32_t VulkanContext::GetGraphicsQueueFamilyIndex() const
+{
+    return graphicsQueueFamilyIndex;
+}
+
+
+std::uint32_t VulkanContext::GetPresentQueueFamilyIndex() const
+{
+    return presentQueueFamilyIndex;
+}
+
+vk::Queue VulkanContext::GetGraphicsQueue() const
+{
+    return graphicsQueue;
+}
+
+vk::Queue VulkanContext::GetPresentQueue() const
+{
+    return presentQueue;
+}

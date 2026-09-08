@@ -4,7 +4,6 @@
 #include <algorithm>
 #include <limits>
 
-
 Swapchain::~Swapchain()
 {
     Destroy();
@@ -12,6 +11,8 @@ Swapchain::~Swapchain()
 
 void Swapchain::Create(const VulkanContext& context, SDL_Window* window)
 {
+    minImageCount = 0;
+
     // Define Borowed Handle   
     surface = context.GetSurface();
     physicalDevice = context.GetPhysicalDevice();
@@ -21,9 +22,9 @@ void Swapchain::Create(const VulkanContext& context, SDL_Window* window)
     availableFormats = physicalDevice.getSurfaceFormatsKHR( surface );
     supportedPresentMode = physicalDevice.getSurfacePresentModesKHR( surface );
 
-    swapChainSurfaceFormat = CorrectFormat(availableFormats);
+    swapChainSurfaceFormat = CorrectFormat();
     swapChainExtent = chooseSwapExtent(surfaceCapabilities, window);
-    minImageCount = chooseSwapMinImageCount(surfaceCapabilities);
+    minImageCount = chooseSwapMinImageCount();
 
     vk::SwapchainCreateInfoKHR  swapChainCreateInfo{};
 
@@ -42,21 +43,34 @@ void Swapchain::Create(const VulkanContext& context, SDL_Window* window)
     
     swapChain = device.createSwapchainKHR(swapChainCreateInfo);
     swapChainImages = device.getSwapchainImagesKHR(swapChain);
+
+    CreateImageViews();
 }
 
 void Swapchain::Destroy()
 {
+    if(!device)
+    {
+        return;
+    }
+
+    for (size_t i = 0; i < swapChainImageViews.size(); i++)
+    {
+        device.destroyImageView(swapChainImageViews[i]);
+    }
+    swapChainImageViews.clear();
+    
     if(swapChain)
     {
         device.destroySwapchainKHR(swapChain);
         swapChain = nullptr;
     }
+
+    device = nullptr;
 }
 
-vk::SurfaceFormatKHR Swapchain::CorrectFormat(const std::vector<vk::SurfaceFormatKHR>& availableFormats)
+vk::SurfaceFormatKHR Swapchain::CorrectFormat()
 {
-    assert(!availableFormats.empty());
-
    for(size_t i = 0; i < availableFormats.size(); i++)
    {
         if(availableFormats[i].format == vk::Format::eB8G8R8A8Srgb && availableFormats[i].colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear)
@@ -100,9 +114,9 @@ vk::Extent2D Swapchain::chooseSwapExtent(const vk::SurfaceCapabilitiesKHR& capab
 }
 
 
-uint32_t Swapchain::chooseSwapMinImageCount(const vk::SurfaceCapabilitiesKHR& surfaceCapabilities)
+uint32_t Swapchain::chooseSwapMinImageCount()
 {
-    uint32_t minImageCount = std::max(3u, surfaceCapabilities.minImageCount);
+    minImageCount = std::max(3u, surfaceCapabilities.minImageCount);
     if((0 < surfaceCapabilities.maxImageCount) && (surfaceCapabilities.maxImageCount < minImageCount))
     {
         minImageCount = surfaceCapabilities.maxImageCount;
@@ -110,3 +124,50 @@ uint32_t Swapchain::chooseSwapMinImageCount(const vk::SurfaceCapabilitiesKHR& su
     return minImageCount;
 }
 
+void Swapchain::CreateImageViews()
+{
+    swapChainImageViews.resize(swapChainImages.size());
+
+    for(size_t i = 0; i < swapChainImages.size(); i++)
+    {
+        vk::ImageViewCreateInfo createInfo{};
+
+        createInfo.image = swapChainImages[i];
+        createInfo.viewType = vk::ImageViewType::e2D;
+        createInfo.format = swapChainSurfaceFormat.format;
+
+        createInfo.components.r = vk::ComponentSwizzle::eIdentity;
+        createInfo.components.g = vk::ComponentSwizzle::eIdentity;
+        createInfo.components.b = vk::ComponentSwizzle::eIdentity;
+        createInfo.components.a = vk::ComponentSwizzle::eIdentity;
+
+        createInfo.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
+        createInfo.subresourceRange.baseMipLevel = 0;
+        createInfo.subresourceRange.levelCount = 1;
+        createInfo.subresourceRange.baseArrayLayer = 0;
+        createInfo.subresourceRange.layerCount = 1;
+
+        swapChainImageViews[i] = device.createImageView(createInfo);
+    }
+
+}
+
+vk::Format Swapchain::getFormat() const
+{
+    return swapChainSurfaceFormat.format;
+}
+
+vk::Extent2D Swapchain::getExtent() const
+{
+    return swapChainExtent;
+}
+
+const std::vector<vk::ImageView>& Swapchain::GetImageViews() const
+{
+    return swapChainImageViews;
+}
+
+vk::SwapchainKHR Swapchain::GetSwapchain() const
+{
+    return swapChain;
+}

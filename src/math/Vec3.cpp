@@ -1,10 +1,24 @@
 #include "Vec3.hpp"
-#include <math.h>
+#include <cmath>
+
+Vec3::Vec3()
+{
+	x = 0.0f;
+	y = 0.0f;
+	z = 0.0f;
+}
+
+Vec3::Vec3(float x, float y, float z)
+{
+	this->x = x;
+	this->y = y;
+	this->z = z;
+}
 
 Vec3 Vec3::Normalize(Vec3 vec3)
 {
 	Vec3 ResultVec;
-	float distance = sqrt(((vec3.x * vec3.x) + (vec3.y * vec3.y) + (vec3.y * vec3.y)));
+	float distance = std::sqrt( vec3.x * vec3.x + vec3.y * vec3.y + vec3.z * vec3.z);
 	ResultVec.x = vec3.x / distance;
 	ResultVec.y = vec3.y / distance;
 	ResultVec.z = vec3.z / distance;

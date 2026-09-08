@@ -3,6 +3,7 @@
 #include <SDL3/SDL_main.h>
 #include <SDL3/SDL_vulkan.h>
 #include "VulkanContext.hpp"
+#include "Swapchain.hpp"
 
 VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
 
@@ -14,7 +15,7 @@ int main()
 
     SDL_Init(SDL_INIT_VIDEO);
 
-    SDL_Window* window = SDL_CreateWindow("Engine", 1200, 800, SDL_WINDOW_VULKAN);
+    SDL_Window* window = SDL_CreateWindow("Engine", 800, 800, SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
 
     VULKAN_HPP_DEFAULT_DISPATCHER.init(vkGetInstanceProcAddr);
 
@@ -25,6 +26,7 @@ int main()
 
     while(StillRunning)
     {
+            context.renderer.Draw();
             SDL_Event event;
             while (SDL_PollEvent(&event))
             {
