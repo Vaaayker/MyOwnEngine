@@ -1,17 +1,29 @@
 #pragma once
 #include "Vertex.hpp"
 #include <vector>
-using namespace std;
+#include <cstdint>
+#include "Vec3.hpp"
+
+/**
+ * @brief Stores the vertices and indices of a mesh.
+ *
+ * Provides functions for creating room geometry, adding vertices and
+ * triangles, and accessing the stored mesh data.
+ */
 
 class Mesh
 {
-private:
-    vector<Vertex> vertices;
-    vector<uint32_t> indices;
-
 public:
+    Mesh() = default;
+
     void CreateRoom();
-    void setRoomIndices();
-    void AddVertices(Vec3 position, Vec3 normal);
-    void AddTriangle(uint a, uint b, uint c);
+    void AddVertex(Vec3 position, Vec3 normal);
+    void AddIndex(std::uint32_t num);
+
+    const std::vector<Vertex>& GetVertices() const;
+    const std::vector<std::uint32_t>& GetIndices() const;
+
+private:
+    std::vector<Vertex> vertices;
+    std::vector<uint32_t> indices;
 };

@@ -9,9 +9,9 @@ DebugMessanger::~DebugMessanger()
     Destroy();
 }
 
-void DebugMessanger::Create(const VulkanContext& context)
+void DebugMessanger::Create([[maybe_unused]]const VulkanContext& context)
 {
-    #ifndef NDEBUG
+#ifndef NDEBUG
     instance = context.GetInstance();
 
     vk::DebugUtilsMessengerCreateInfoEXT createInfo{};
@@ -33,22 +33,29 @@ void DebugMessanger::Create(const VulkanContext& context)
 
 void DebugMessanger::Destroy()
 {
-    #ifndef NDEBUG
+#ifndef NDEBUG
+    if(!instance)
+    {
+        return;
+    }
+
     if (messenger)
     {
         instance.destroyDebugUtilsMessengerEXT(messenger);
         messenger = nullptr;
     }
-    #endif
+
+    instance = nullptr;
+#endif
 }
 
 
 
 VKAPI_ATTR VkBool32 VKAPI_CALL DebugMessanger::debugCallback(
-    vk::DebugUtilsMessageSeverityFlagBitsEXT severity,
-    vk::DebugUtilsMessageTypeFlagsEXT type,
+    [[maybe_unused]] vk::DebugUtilsMessageSeverityFlagBitsEXT severity,
+    [[maybe_unused]] vk::DebugUtilsMessageTypeFlagsEXT type,
     const vk::DebugUtilsMessengerCallbackDataEXT* callbackData,
-    void* userData
+    [[maybe_unused]] void* userData
 )
 {
     std::cerr << "validation layer: " << callbackData->pMessage << std::endl;
