@@ -26,6 +26,8 @@ public:
 
     void Create(SDL_Window* window);
     void Destroy();
+    
+    void MakeDraw(SDL_Window* window);
 
     // getters 
     vk::Instance GetInstance() const;
@@ -36,8 +38,6 @@ public:
     std::uint32_t GetPresentQueueFamilyIndex() const;
     vk::Queue GetGraphicsQueue() const;
     vk::Queue GetPresentQueue() const;
-
-    Renderer renderer{};
 
 private:
     void CreateInstanceAndSurface(SDL_Window* window);
@@ -70,6 +70,7 @@ private:
     DebugMessanger debugMessenger{};
 #endif
 
+    Renderer renderer{};
     Swapchain swapchain{};
     CommandPool pool{};
     SyncObjects sync{};

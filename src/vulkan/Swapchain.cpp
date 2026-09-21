@@ -47,6 +47,59 @@ void Swapchain::Create(const VulkanContext& context, SDL_Window* window)
     CreateImageViews();
 }
 
+void Swapchain::Recreate(SDL_Window* window)
+{
+    surfaceCapabilities = physicalDevice.getSurfaceCapabilitiesKHR( surface );
+    availableFormats = physicalDevice.getSurfaceFormatsKHR( surface );
+    supportedPresentMode = physicalDevice.getSurfacePresentModesKHR( surface );
+
+    swapChainSurfaceFormat = CorrectFormat();
+    swapChainExtent = chooseSwapExtent(surfaceCapabilities, window);
+    minImageCount = chooseSwapMinImageCount();
+
+    vk::SwapchainCreateInfoKHR  swapChainCreateInfo{};
+
+    swapChainCreateInfo.surface = surface;
+    swapChainCreateInfo.minImageCount = minImageCount;
+    swapChainCreateInfo.imageFormat = swapChainSurfaceFormat.format;
+    swapChainCreateInfo.imageColorSpace = swapChainSurfaceFormat.colorSpace;
+    swapChainCreateInfo.imageExtent = swapChainExtent;
+    swapChainCreateInfo.imageArrayLayers = 1;
+    swapChainCreateInfo.imageUsage = vk::ImageUsageFlagBits::eColorAttachment;
+    swapChainCreateInfo.imageSharingMode = vk::SharingMode::eExclusive;
+    swapChainCreateInfo.preTransform = surfaceCapabilities.currentTransform;
+    swapChainCreateInfo.compositeAlpha = vk::CompositeAlphaFlagBitsKHR::eOpaque;
+    swapChainCreateInfo.presentMode = chooseSwapPresentMode(supportedPresentMode);
+    swapChainCreateInfo.clipped = true;
+    swapChainCreateInfo.oldSwapchain = swapChain;
+    
+    vk::SwapchainKHR swapChainTmp = device.createSwapchainKHR(swapChainCreateInfo); // create new swapchain
+
+    // destroy all old Image Views
+    for (size_t i = 0; i < swapChainImageViews.size(); i++)
+    {
+        device.destroyImageView(swapChainImageViews[i]);
+    }
+    swapChainImageViews.clear();
+
+    // delete(clear) swapchain
+    device.destroySwapchainKHR(swapChain);
+    swapChain = nullptr;
+
+    // assign new swapchain to old(both of this contatain one handle)
+    // all depends element is synced after this
+    swapChain = swapChainTmp;
+
+    // get the null to new swapchain
+    swapChainTmp = nullptr;
+
+    swapChainImages = device.getSwapchainImagesKHR(swapChain);
+
+    CreateImageViews();
+}
+
+// change render finished semaphore
+
 void Swapchain::Destroy()
 {
     if(!device)

@@ -22,6 +22,7 @@ public:
     ~Swapchain();
 
     void Create(const VulkanContext& context, SDL_Window* window);
+    void Recreate(SDL_Window* window);
     void Destroy();
 
     // getter
@@ -54,3 +55,5 @@ private:
     vk::Extent2D swapChainExtent{};
     uint32_t minImageCount;
 };
+
+

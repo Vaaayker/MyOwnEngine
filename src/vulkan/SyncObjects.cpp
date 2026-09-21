@@ -18,7 +18,34 @@ void SyncObjects::Create(const VulkanContext& context, const Swapchain& swapchai
     createSemaphores();
     createFences();
 }
+
+void SyncObjects::ReinitializeResources(const Swapchain& swapchain)
+{
+    vk::SemaphoreCreateInfo semaphoreInfo{};
+
+    renderFinishedCount = swapchain.GetImageViews().size();
+    renderFinishedSemaphores.resize(renderFinishedCount);
+
+    for(std::size_t i = 0; i < renderFinishedCount; i++)
+    {
+        renderFinishedSemaphores[i] = device.createSemaphore(semaphoreInfo);
+    }
+}
     
+void SyncObjects::DestroyResources()
+{
+    for(std::uint32_t i = 0; i < renderFinishedCount; i++)
+    {
+        if (renderFinishedSemaphores[i])
+        {
+            device.destroySemaphore(renderFinishedSemaphores[i]);
+            renderFinishedSemaphores[i] = nullptr;
+        }
+    }
+
+    renderFinishedSemaphores.clear();
+}
+
 void SyncObjects::Destroy()
 {
     if(!device)
@@ -41,17 +68,9 @@ void SyncObjects::Destroy()
         }
     }
 
-    for(std::uint32_t i = 0; i < renderFinishedCount; i++)
-    {
-        if (renderFinishedSemaphores[i])
-        {
-            device.destroySemaphore(renderFinishedSemaphores[i]);
-            renderFinishedSemaphores[i] = nullptr;
-        }
-    }
+    DestroyResources();
 
     imageAvailableSemaphores.clear();
-    renderFinishedSemaphores.clear();
     inFlightFences.clear();
 
     device = nullptr; // The device is borrowed, so this class does not destroy it
@@ -59,7 +78,6 @@ void SyncObjects::Destroy()
 
 void SyncObjects::createSemaphores()
 {
-    
     vk::SemaphoreCreateInfo semaphoreInfo{};
 
     for(std::uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
@@ -88,9 +106,9 @@ vk::Semaphore SyncObjects::getImageAvailableSemaphore(std::uint32_t frameIndex) 
     return imageAvailableSemaphores[frameIndex];
 }
 
-vk::Semaphore SyncObjects::getRenderFinishedSemaphore(std::size_t imageIndex) const
+const std::vector<vk::Semaphore>& SyncObjects::getRenderFinishedSemaphore() const
 {
-    return renderFinishedSemaphores[imageIndex];
+    return renderFinishedSemaphores;
 }
 
 vk::Fence SyncObjects::getInFlightFence(std::uint32_t frameIndex) const

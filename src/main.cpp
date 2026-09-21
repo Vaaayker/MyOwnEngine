@@ -26,16 +26,16 @@ int main()
 
     while(StillRunning)
     {
-            context.renderer.Draw();
-            SDL_Event event;
-            while (SDL_PollEvent(&event))
+        SDL_Event event;
+        while (SDL_PollEvent(&event))
+        {
+            if(event.type == SDL_EVENT_QUIT)
             {
-                if(event.type == SDL_EVENT_QUIT)
-                {
-                    StillRunning = false;  
-                }
+                StillRunning = false;  
             }
+        }
 
+        context.MakeDraw(window);
     }
 
     context.Destroy();
@@ -44,3 +44,4 @@ int main()
 
     return 0;
 }
+
