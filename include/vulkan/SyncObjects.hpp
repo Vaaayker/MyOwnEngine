@@ -24,11 +24,13 @@ public:
     ~SyncObjects();
 
     void Create(const VulkanContext& context, const Swapchain& swapchain);
+    void ReinitializeResources(const Swapchain& swapchain);
+    void DestroyResources();
     void Destroy();
 
     // getters
     vk::Semaphore getImageAvailableSemaphore(std::uint32_t frameIndex) const;
-    vk::Semaphore getRenderFinishedSemaphore(std::size_t imageIndex) const;
+    const std::vector<vk::Semaphore>& getRenderFinishedSemaphore() const;
     vk::Fence getInFlightFence(std::uint32_t frameIndex) const;
 
 private:

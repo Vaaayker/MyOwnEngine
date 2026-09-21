@@ -22,48 +22,74 @@ void Renderer::Create(const VulkanContext& context,
 
     for(std::uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        frames[i].CommandBuffer = pool.GetCommandBuffer(i);
-        frames[i].ImageAvailableSemaphore = syncObj.getImageAvailableSemaphore(i);
-        frames[i].InFlightFence = syncObj.getInFlightFence(i);
+        frames[i].CommandBuffer = pool.GetCommandBuffer(i); 
+        frames[i].ImageAvailableSemaphore = syncObj.getImageAvailableSemaphore(i); 
+        frames[i].InFlightFence = syncObj.getInFlightFence(i); 
     }
+    
     renderFinishedSemaphores.resize(swapchain.GetImageViews().size());
-    for(std::size_t i = 0; i < swapchain.GetImageViews().size(); i++)
-    {
-        renderFinishedSemaphores[i] = syncObj.getRenderFinishedSemaphore(i);
-    }
+    renderFinishedSemaphores = syncObj.getRenderFinishedSemaphore(); 
 
     CreateFrameBuffer();
 }
 
-void Renderer::Destroy()
+void Renderer::ReinitializeResources(const Swapchain& swapchain,
+        const SyncObjects& syncObj,
+        const GraphicsPipeline& pipeline)
+{
+    // SwapChain
+    SwapChain = swapchain.GetSwapchain();
+
+    // swapChainImageViews
+    swapChainImageViews = swapchain.GetImageViews();
+
+    // SwapChainExtent
+    SwapChainExtent = swapchain.getExtent();
+
+    // renderPass
+    renderPass = pipeline.GetRenderPass();
+
+    // graphicsPipeline
+    graphicsPipeline = pipeline.GetGraphicsPipeline();
+
+    // renderFinishedSemaphores
+    renderFinishedSemaphores.resize(swapchain.GetImageViews().size());
+    renderFinishedSemaphores = syncObj.getRenderFinishedSemaphore();
+
+    CreateFrameBuffer();
+}
+
+void Renderer::DestroyResources()
 {
     if(!device)
     {
         return;
     }
 
-    // destroy swapChainFramebuffers
-    currentFrame = {};
-    frames.clear();
-    for(size_t i = 0; i < swapChainFramebuffers.size(); i++)
+    for(size_t i = 0; i < swapChainImageViews.size(); i++)
     {
-        if(swapChainFramebuffers[i])
-        {
-           device.destroyFramebuffer(swapChainFramebuffers[i]); 
-        }
+        device.destroyFramebuffer(swapChainFramebuffers[i]);
+        swapChainFramebuffers[i] = nullptr;
     }
-    swapChainFramebuffers.clear();
-    
 
-    // get the null to borowed handles
-    renderFinishedSemaphores.clear();
-    presentQueue = nullptr;
-    graphicsQueue = nullptr;
-    SwapChain = nullptr;
+    renderFinishedSemaphores.clear(); 
     graphicsPipeline = nullptr;
     renderPass = nullptr;
     SwapChainExtent = vk::Extent2D{};
     swapChainImageViews.clear();
+    SwapChain = nullptr;
+}
+
+void Renderer::Destroy()
+{
+    currentFrame = {};
+    frames.clear();
+
+    DestroyResources();
+
+    // get the null to borowed handles
+    presentQueue = nullptr;
+    graphicsQueue = nullptr;
     device = nullptr; 
 }
 
@@ -117,17 +143,25 @@ void Renderer::Draw()
     renderPassInfo.pClearValues = &clearColor;
 
     std::uint64_t timeout = std::numeric_limits<uint64_t>::max(); 
-    (void)device.waitForFences(frames[currentFrame].InFlightFence, true, timeout); 
+    auto waitFenceResult = device.waitForFences(frames[currentFrame].InFlightFence, true, timeout); 
+    if(waitFenceResult == vk::Result::eTimeout)
+    {
+        throw std::runtime_error("Get the eTimeout from func waitForFences");
+    }
 
     auto acquireResult = device.acquireNextImageKHR(SwapChain, timeout, frames[currentFrame].ImageAvailableSemaphore, nullptr);
     if(acquireResult.result == vk::Result::eErrorOutOfDateKHR)
     {
-        // recreate swapchain here
-        return;
+        eErrorOutOfDate = true; 
+        return; // return for recreate swapchain
     }
-    if(acquireResult.result != vk::Result::eSuccess && acquireResult.result != vk::Result::eSuboptimalKHR)
+    if(acquireResult.result == vk::Result::eSuboptimalKHR)
     {
-        throw std::runtime_error("Failed to acquire swapchain image");
+        eSubOptimal = true;
+    }
+    if(acquireResult.result == vk::Result::eTimeout)
+    {
+        throw std::runtime_error("Get the eTimeout from func acquireNextImageKHR");
     }
     std::uint32_t imageIndex = acquireResult.value;
 
@@ -174,17 +208,38 @@ void Renderer::Draw()
     presentInfo.pImageIndices = &imageIndex;
     presentInfo.pResults = nullptr;
     vk::Result presentResult = presentQueue.presentKHR(presentInfo);
-    if(presentResult == vk::Result::eErrorOutOfDateKHR || presentResult == vk::Result::eSuboptimalKHR)
+    if(presentResult == vk::Result::eErrorOutOfDateKHR)
     {
-        // recreate swapchain
-        return;
+        eErrorOutOfDate = true; 
+        return; // return for recreate swapchain
     }
-    else if(presentResult != vk::Result::eSuccess)
+    if(presentResult == vk::Result::eSuboptimalKHR)
     {
-        throw std::runtime_error("Failed to present swapchain image");
+        eSubOptimal = true;
     }
 
     currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+}
+
+void Renderer::CallDraw()
+{
+    Draw();
+}
+
+bool Renderer::GetErrorOutOfDate() const
+{
+    return eErrorOutOfDate;
+}
+
+bool Renderer::GetSuboptimal() const
+{
+    return eSubOptimal;
+}
+
+void Renderer::ResetFlags()
+{
+    eErrorOutOfDate = false;
+    eSubOptimal = false;
 }
 
 

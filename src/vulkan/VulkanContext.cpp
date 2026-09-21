@@ -47,8 +47,6 @@ void VulkanContext::Destroy()
         debugMessenger.Destroy();
     #endif
 
-
-
     if(device)
     {
         device.destroy();
@@ -274,7 +272,6 @@ std::uint32_t VulkanContext::GetGraphicsQueueFamilyIndex() const
     return graphicsQueueFamilyIndex;
 }
 
-
 std::uint32_t VulkanContext::GetPresentQueueFamilyIndex() const
 {
     return presentQueueFamilyIndex;
@@ -289,3 +286,36 @@ vk::Queue VulkanContext::GetPresentQueue() const
 {
     return presentQueue;
 }
+
+void VulkanContext::MakeDraw(SDL_Window* window)
+{
+    renderer.CallDraw();
+
+    if((renderer.GetErrorOutOfDate()) || (renderer.GetSuboptimal()))
+    {
+        int width = 0;
+        int height = 0;
+
+        SDL_GetWindowSizeInPixels(window, &width, &height);
+
+        if (width == 0 || height == 0)
+        {
+            throw std::runtime_error("The window is minimized or hasn't drawable-size ");
+        }
+
+        device.waitIdle();
+
+        renderer.DestroyResources(); // DestroyResources
+        pipeline.DestroyResources();
+        sync.DestroyResources();
+
+        swapchain.Recreate(window);
+
+        sync.ReinitializeResources(swapchain); // ReinitiliazeResources
+        pipeline.ReinitializeResources(swapchain);
+        renderer.ReinitializeResources(swapchain, sync, pipeline);
+
+        renderer.ResetFlags();
+    }
+}
+

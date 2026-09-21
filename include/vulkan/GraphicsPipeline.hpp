@@ -25,7 +25,9 @@ public:
     ~GraphicsPipeline();
 
     void Create(const Swapchain& swapchain, const VulkanContext& context);
+    void ReinitializeResources(const Swapchain& swapchain);
     void Destroy();
+    void DestroyResources();
 
     // getters
     vk::RenderPass GetRenderPass() const;

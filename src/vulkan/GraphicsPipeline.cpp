@@ -14,6 +14,11 @@ void GraphicsPipeline::Create(const Swapchain& swapchain, const VulkanContext& c
     // Intitiize device as a borowed handle
     device = context.GetDevice();
 
+    ReinitializeResources(swapchain);
+}
+
+void GraphicsPipeline::ReinitializeResources(const Swapchain& swapchain)
+{
     // Shader Module
     CreateShaderModules();
 
@@ -31,7 +36,15 @@ void GraphicsPipeline::Create(const Swapchain& swapchain, const VulkanContext& c
 
 }
 
-void GraphicsPipeline::Destroy()
+void GraphicsPipeline::Destroy() // func for shutdown
+{
+    DestroyResources();
+
+    // The device is borrowed, so this class does not destroy it
+    device = nullptr;
+}
+
+void GraphicsPipeline::DestroyResources()
 {
     if (!device)
     {
@@ -67,9 +80,6 @@ void GraphicsPipeline::Destroy()
         device.destroyShaderModule(fragmentShaderModule);
         fragmentShaderModule = nullptr;
     }
-
-    // The device is borrowed, so this class does not destroy it
-    device = nullptr;
 }
 
 std::vector<uint32_t> GraphicsPipeline::ReadShaderFile(const std::string& filename) const

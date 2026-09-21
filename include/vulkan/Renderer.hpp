@@ -1,6 +1,10 @@
 #pragma once
 #include <vulkan/vulkan.hpp>
 #include "FrameResources.hpp"
+#include <SDL3/SDL.h>
+#include <SDL3/SDL_main.h>
+#include <SDL3/SDL_vulkan.h>
+
 
 // forward declarations:
 class Swapchain; 
@@ -27,11 +31,21 @@ public:
         const GraphicsPipeline& pipeline, 
         const CommandPool& pool,
         const SyncObjects& syncObj);
+    void ReinitializeResources(const Swapchain& swapchain,
+        const SyncObjects& syncObj,
+        const GraphicsPipeline& pipeline);
+    void DestroyResources();
     void Destroy();
-    
+
+    void CallDraw();
+
+    bool GetErrorOutOfDate() const;
+    bool GetSuboptimal() const;
+    void ResetFlags();
+
+private:
     void Draw();
     void CreateFrameBuffer();
-
 
 private:
     // borowed handles:
@@ -49,4 +63,11 @@ private:
     std::vector<vk::Framebuffer> swapChainFramebuffers;
     std::vector<FrameResources> frames = std::vector<FrameResources>(MAX_FRAMES_IN_FLIGHT); 
     std::uint32_t currentFrame{};
+
+    bool eErrorOutOfDate{};
+    bool eSubOptimal{};
 };
+
+// прибрати мінус 1 з мейн
+// прибрати віндов з рендерер та залишити у контексті
+// eSubOptimal додати на кінець
