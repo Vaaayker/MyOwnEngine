@@ -7,7 +7,7 @@
 
 VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
 
-int main()
+int main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[])
 {
     vk::detail::DynamicLoader dl;
 

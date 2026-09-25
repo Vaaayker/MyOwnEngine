@@ -31,8 +31,7 @@ Configure and make a Debug build:
 ```bash
 cmake -S . -B build/debug -G Ninja -DCMAKE_BUILD_TYPE=Debug
 ninja -C build/debug
-```
-
+`
 ### Release
 Configure and make a Release build:
 ```bash

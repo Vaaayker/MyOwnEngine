@@ -200,6 +200,7 @@ void Renderer::Draw()
     submit.pSignalSemaphoreInfos = &signalSemaphoreInf;
     graphicsQueue.submit2(submit, frames[currentFrame].InFlightFence);
 
+
     vk::PresentInfoKHR presentInfo{};
     presentInfo.waitSemaphoreCount = 1;
     presentInfo.pWaitSemaphores = &renderFinishedSemaphores[imageIndex];

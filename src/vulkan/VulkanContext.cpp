@@ -211,24 +211,40 @@ void VulkanContext::PickDevice()
         queueCreateInfos.push_back(presentQueueCreateInfo);
     }
 
-    std::vector<const char*> requiredDeviceExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
+    std::vector<const char*> requiredDeviceExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME};
 
-    requiredDeviceExtensions.push_back("VK_KHR_portability_subset");
+    std::vector<vk::ExtensionProperties> availableExtensions = physicalDevice.enumerateDeviceExtensionProperties();
+
+    bool portabilitySubsetSupported = false;
+
+    for (const auto& extension : availableExtensions)
+    {
+        if (std::strcmp(extension.extensionName,"VK_KHR_portability_subset") == 0)
+        {
+            portabilitySubsetSupported = true;
+            break;
+        }
+    }
+
+    if (portabilitySubsetSupported)
+    {
+        requiredDeviceExtensions.push_back("VK_KHR_portability_subset");
+    }
 
     vk::PhysicalDeviceSynchronization2Features synchronization2Features{};
     synchronization2Features.synchronization2 = vk::True;
-    if (!synchronization2Features.synchronization2)
-    {
-        throw std::runtime_error("Synchronization2 is not supported");
-    }
 
     vk::DeviceCreateInfo deviceCreateInfo{};
+
     deviceCreateInfo.pNext = &synchronization2Features;
+
     deviceCreateInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
+
     deviceCreateInfo.pQueueCreateInfos = queueCreateInfos.data();
 
     deviceCreateInfo.enabledExtensionCount = static_cast<uint32_t>(requiredDeviceExtensions.size());
-    deviceCreateInfo.ppEnabledExtensionNames = requiredDeviceExtensions.data();
+
+    deviceCreateInfo.ppEnabledExtensionNames =requiredDeviceExtensions.data();
 
     deviceCreateInfo.pEnabledFeatures = nullptr;
 

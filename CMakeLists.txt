@@ -25,23 +25,30 @@ target_include_directories(MyOwnEngine
     include/math
     include/vulkan)
 
-target_compile_features(MyOwnEngine 
-    PRIVATE 
-    cxx_std_17)
+target_compile_features(MyOwnEngine PRIVATE cxx_std_17)
+
+target_compile_definitions(MyOwnEngine PRIVATE
+    VULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1)
+
+if(MSVC)
+    target_compile_options(MyOwnEngine PRIVATE
+        /W4
+        /WX
+    )
+elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(MyOwnEngine PRIVATE
+        -Wall
+        -Wextra
+        -Wpedantic
+        -Wconversion
+        -Wshadow
+        -Werror
+    )
+endif()
 
 target_compile_definitions(MyOwnEngine
     PRIVATE
         VULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1
-)
-
-target_compile_options(MyOwnEngine
-    PRIVATE
-    -Wall
-    -Wextra
-    -Wpedantic
-    -Wconversion
-    -Wshadow
-    -Werror
 )
 
 find_package(Vulkan)
