@@ -1,9 +1,12 @@
 # execitable files
-bin/
-main
+build/
 
 # Prerequisites
 *.d
+
+# macOS
+.DS_Store
+*.dSYM
 
 # Compiled Object files
 *.slo
