@@ -10,7 +10,7 @@ void CommandPool::Create(const VulkanContext& context)
 {
     device = context.GetDevice();
 
-    createCommandPool(context);
+    createCommandPool();
     allocateCommandBuffersAndInitializeSyncObject();
 }
 
@@ -30,12 +30,11 @@ void CommandPool::Destroy()
     device = nullptr; // The device is borrowed, so this class does not destroy it
 }
 
-void CommandPool::createCommandPool(const VulkanContext& context)
+void CommandPool::createCommandPool()
 {
     vk::CommandPoolCreateInfo createInfoCommandPool{};
 
     createInfoCommandPool.flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer;
-    createInfoCommandPool.queueFamilyIndex = context.GetGraphicsQueueFamilyIndex();
 
     commandPool = device.createCommandPool(createInfoCommandPool);
 }

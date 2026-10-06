@@ -17,8 +17,12 @@ Vec3::Vec3(float x, float y, float z)
 
 Vec3 Vec3::Normalize(Vec3 vec3)
 {
-	Vec3 ResultVec;
+	Vec3 ResultVec{};
 	float distance = std::sqrt( vec3.x * vec3.x + vec3.y * vec3.y + vec3.z * vec3.z);
+	if(distance == 0.0f)
+	{
+		return ResultVec; 
+	}
 	ResultVec.x = vec3.x / distance;
 	ResultVec.y = vec3.y / distance;
 	ResultVec.z = vec3.z / distance;

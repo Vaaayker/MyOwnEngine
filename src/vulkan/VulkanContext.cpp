@@ -22,12 +22,13 @@ void VulkanContext::Create(SDL_Window* window)
     GraphicsQueue();
     PresentQueue();
 
+    mesh.CreateTriangle();
     swapchain.Create(*this, window);
     pool.Create(*this);
     sync.Create(*this, swapchain);
-    pipeline.Create(swapchain, *this);
-    renderer.Create(*this, swapchain, pipeline, pool, sync);
-
+    bufferHelper.Create(mesh, *this);
+    pipeline.Create(swapchain, *this, mesh);
+    renderer.Create(*this, swapchain, pipeline, pool, sync, bufferHelper, mesh);
 }
 
 void VulkanContext::Destroy()
@@ -37,7 +38,9 @@ void VulkanContext::Destroy()
         device.waitIdle();
     }
 
+    
     renderer.Destroy();
+    bufferHelper.Destroy();
     pipeline.Destroy();
     sync.Destroy();
     pool.Destroy();
@@ -328,7 +331,7 @@ void VulkanContext::MakeDraw(SDL_Window* window)
         swapchain.Recreate(window);
 
         sync.ReinitializeResources(swapchain); // ReinitiliazeResources
-        pipeline.ReinitializeResources(swapchain);
+        pipeline.ReinitializeResources(swapchain, mesh);
         renderer.ReinitializeResources(swapchain, sync, pipeline);
 
         renderer.ResetFlags();

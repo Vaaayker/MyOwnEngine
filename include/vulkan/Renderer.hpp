@@ -12,6 +12,9 @@ class VulkanContext;
 class CommandPool; 
 class SyncObjects; 
 struct FrameResources; 
+class BufferHelper;
+struct Vertex;
+class Mesh;
 
 /**
  * @brief Manages frame rendering.
@@ -29,7 +32,9 @@ public:
         const Swapchain& swapchain, 
         const GraphicsPipeline& pipeline, 
         const CommandPool& pool,
-        const SyncObjects& syncObj);
+        const SyncObjects& syncObj,
+        const BufferHelper& bufferHelper,
+        const Mesh& mesh);
     void ReinitializeResources(const Swapchain& swapchain,
         const SyncObjects& syncObj,
         const GraphicsPipeline& pipeline);
@@ -57,16 +62,22 @@ private:
     vk::Queue graphicsQueue{};
     vk::Queue presentQueue{};
     std::vector<vk::Semaphore> renderFinishedSemaphores;
+    vk::Buffer VertexBuffer{};
+    vk::Buffer IndicesBuffer{};
+    vk::Buffer StageVertexBuffer{};
+    vk::Buffer StageIndicesBuffer{};
+    std::vector<Vertex> Vertices{};
+    std::uint32_t sizeVertices{};
+    std::uint32_t sizeIndices{};
+    
 
     // owned by this class:
     std::vector<vk::Framebuffer> swapChainFramebuffers;
     std::vector<FrameResources> frames = std::vector<FrameResources>(MAX_FRAMES_IN_FLIGHT); 
     std::uint32_t currentFrame{};
+    
 
     bool eErrorOutOfDate{};
     bool eSubOptimal{};
+    bool buffersUploaded{};
 };
-
-// прибрати мінус 1 з мейн
-// прибрати віндов з рендерер та залишити у контексті
-// eSubOptimal додати на кінець
