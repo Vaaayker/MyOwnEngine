@@ -1,6 +1,7 @@
 #include "GraphicsPipeline.hpp"
 #include "Swapchain.hpp"
 #include "VulkanContext.hpp"
+#include "Mesh.hpp"
 #include <stdexcept>
 #include <fstream>
 
@@ -9,15 +10,15 @@ GraphicsPipeline::~GraphicsPipeline()
     Destroy();
 }
 
-void GraphicsPipeline::Create(const Swapchain& swapchain, const VulkanContext& context)
+void GraphicsPipeline::Create(const Swapchain& swapchain, const VulkanContext& context, const Mesh& mesh)
 {
     // Intitiize device as a borowed handle
     device = context.GetDevice();
 
-    ReinitializeResources(swapchain);
+    ReinitializeResources(swapchain, mesh);
 }
 
-void GraphicsPipeline::ReinitializeResources(const Swapchain& swapchain)
+void GraphicsPipeline::ReinitializeResources(const Swapchain& swapchain, const Mesh& mesh)
 {
     // Shader Module
     CreateShaderModules();
@@ -32,7 +33,7 @@ void GraphicsPipeline::ReinitializeResources(const Swapchain& swapchain)
     CreatePipelineLayout();
 
     // Create Graphics Pipeline
-    CreateGraphicsPipeline();
+    CreateGraphicsPipeline(swapchain, mesh);
 
 }
 
@@ -80,6 +81,8 @@ void GraphicsPipeline::DestroyResources()
         device.destroyShaderModule(fragmentShaderModule);
         fragmentShaderModule = nullptr;
     }
+
+    attributeDescription.clear();
 }
 
 std::vector<uint32_t> GraphicsPipeline::ReadShaderFile(const std::string& filename) const
@@ -157,14 +160,14 @@ void GraphicsPipeline::CreateShaderStages()
 }
 
 
-vk::PipelineVertexInputStateCreateInfo GraphicsPipeline::CreateVertexInput()
+vk::PipelineVertexInputStateCreateInfo GraphicsPipeline::CreateVertexInput(std::vector<vk::VertexInputAttributeDescription>& attributeDescriptions, vk::VertexInputBindingDescription& bindingDescription)
 {
     vk::PipelineVertexInputStateCreateInfo vertexInputInfo{};
 
-    vertexInputInfo.vertexBindingDescriptionCount = 0;
-    vertexInputInfo.pVertexBindingDescriptions = nullptr;
-    vertexInputInfo.vertexAttributeDescriptionCount = 0;
-    vertexInputInfo.pVertexAttributeDescriptions = nullptr;
+    vertexInputInfo.vertexBindingDescriptionCount = 1;
+    vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
+    vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
+    vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
 
     return vertexInputInfo;
 }
@@ -245,7 +248,6 @@ vk::PipelineDynamicStateCreateInfo GraphicsPipeline::CreateDynamicState()
     return dynamicStateInfo;
 }
 
-
 void GraphicsPipeline::CreatePipelineLayout()
 {
     vk::PipelineLayoutCreateInfo pipelineLayoutInfo{};
@@ -289,14 +291,40 @@ void GraphicsPipeline::CreateRenderPass(const Swapchain& swapchain)
 }
 
 
-void GraphicsPipeline::CreateGraphicsPipeline()
+void GraphicsPipeline::CreateGraphicsPipeline([[maybe_unused]]const Swapchain& swapchain, [[maybe_unused]]const Mesh& mesh)
 {
     vk::GraphicsPipelineCreateInfo pipelineInfo{};
 
     pipelineInfo.stageCount = static_cast<uint32_t>(shaderStages.size());
     pipelineInfo.pStages = shaderStages.data();
 
-    vk::PipelineVertexInputStateCreateInfo VertexInputState = CreateVertexInput();
+    vk::VertexInputBindingDescription bindingDescription{};
+    bindingDescription.binding = 0;
+    bindingDescription.stride = 36; // size of Vertex struct
+    bindingDescription.inputRate = vk::VertexInputRate::eVertex;
+
+    vk::VertexInputAttributeDescription attributePositionDescriptions{};
+    attributePositionDescriptions.location = 0;
+    attributePositionDescriptions.binding = 0;
+    attributePositionDescriptions.format = vk::Format::eR32G32B32Sfloat; 
+    attributePositionDescriptions.offset = offsetof(Vertex, position);
+    attributeDescription.push_back(attributePositionDescriptions);
+
+    vk::VertexInputAttributeDescription attributeNormalPositionDescriptions{};
+    attributeNormalPositionDescriptions.location = 1;
+    attributeNormalPositionDescriptions.binding = 0;
+    attributeNormalPositionDescriptions.format = vk::Format::eR32G32B32Sfloat; 
+    attributeNormalPositionDescriptions.offset = offsetof(Vertex, normal);
+    attributeDescription.push_back(attributeNormalPositionDescriptions);
+
+    vk::VertexInputAttributeDescription attributeColorPositionDescriptions{};
+    attributeColorPositionDescriptions.location = 2;
+    attributeColorPositionDescriptions.binding = 0;
+    attributeColorPositionDescriptions.format = vk::Format::eR32G32B32Sfloat; 
+    attributeColorPositionDescriptions.offset = offsetof(Vertex, color);
+    attributeDescription.push_back(attributeColorPositionDescriptions);
+
+    vk::PipelineVertexInputStateCreateInfo VertexInputState = CreateVertexInput(attributeDescription, bindingDescription);
     pipelineInfo.pVertexInputState = &VertexInputState;
 
     vk::PipelineInputAssemblyStateCreateInfo InputAssemblyState = CreateInputAssembly();

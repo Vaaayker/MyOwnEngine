@@ -17,6 +17,7 @@ public:
     Mesh() = default;
 
     void CreateRoom();
+    void CreateTriangle();
     void AddVertex(Vec3 position, Vec3 normal);
     void AddIndex(std::uint32_t num);
 

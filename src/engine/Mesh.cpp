@@ -1,5 +1,24 @@
 #include "Mesh.hpp"
 
+void Mesh::CreateTriangle()
+{
+    vertices.clear();
+    indices.clear();
+
+    vertices.reserve(3);
+    indices.reserve(3);
+
+    Vec3 Normal = {0.0f, 0.0f, 0.0f};
+    vertices.push_back({{0.0f, -0.5f, 0.0f}, Normal, {1.0f, 0.0f, 0.0f}}); // 0
+    vertices.push_back({{0.5f, 0.5f, 0.0f}, Normal, {0.0f, 1.0f, 0.0f}}); // 1
+    vertices.push_back({{-0.5f, 0.5f, 0.0f}, Normal, {0.0f, 0.0f, 1.0f}}); // 2
+
+    for(std::uint32_t i = 0; i < 3; i++)
+    {
+        indices.push_back(i);
+    }
+}
+
 void Mesh::CreateRoom()
 {
     vertices.clear();
@@ -43,7 +62,6 @@ void Mesh::CreateRoom()
     vertices.push_back({{0.0f, 5.0f, 7.0f}, NormalFourthWall}); // 15
     // indices: 12, 14, 13,
     //          13, 14, 15 
-
 
     // fifth wall
     Vec3 NormalFifthWall = {0.0f, -1.0f, 0.0f};

@@ -9,6 +9,8 @@
 #include "SyncObjects.hpp"
 #include "GraphicsPipeline.hpp"
 #include "Renderer.hpp"
+#include "Mesh.hpp"
+#include "BufferHelper.hpp"
 
 /**
  * @brief Manages the main Vulkan objects and device context.
@@ -75,6 +77,6 @@ private:
     CommandPool pool{};
     SyncObjects sync{};
     GraphicsPipeline pipeline{};
-    
-
+    Mesh mesh{};
+    BufferHelper bufferHelper{};
 };

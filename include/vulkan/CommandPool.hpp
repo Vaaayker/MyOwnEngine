@@ -31,7 +31,7 @@ public:
     vk::CommandBuffer GetCommandBuffer(std::uint32_t frameIndex) const; 
 
 private:
-    void createCommandPool(const VulkanContext& context);
+    void createCommandPool();
     void allocateCommandBuffersAndInitializeSyncObject();
 
 private:

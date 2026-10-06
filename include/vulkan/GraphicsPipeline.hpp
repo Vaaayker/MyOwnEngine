@@ -5,6 +5,7 @@
 
 class Swapchain; // forward declaration
 class VulkanContext; // forward declaration
+class Mesh; // forward declaration
 
 /**
  * @brief Creates and stores the Vulkan graphics pipeline.
@@ -24,8 +25,8 @@ public:
     GraphicsPipeline& operator=(const GraphicsPipeline&) = delete;
     ~GraphicsPipeline();
 
-    void Create(const Swapchain& swapchain, const VulkanContext& context);
-    void ReinitializeResources(const Swapchain& swapchain);
+    void Create(const Swapchain& swapchain, const VulkanContext& context, const Mesh& mesh);
+    void ReinitializeResources(const Swapchain& swapchain, const Mesh& mesh);
     void Destroy();
     void DestroyResources();
 
@@ -39,11 +40,10 @@ private:
     void CreateShaderStages();
     void CreatePipelineLayout();
     void CreateRenderPass(const Swapchain& swapchain);
-    void CreateGraphicsPipeline(); 
-
+    void CreateGraphicsPipeline(const Swapchain& swapchain, const Mesh& mesh);
     // Create the pipeline state structures and keep them alive
     // while GraphicsPipelineCreateInfo uses pointers to them.
-    vk::PipelineVertexInputStateCreateInfo CreateVertexInput();
+    vk::PipelineVertexInputStateCreateInfo CreateVertexInput(std::vector<vk::VertexInputAttributeDescription>& attributeDescriptions, vk::VertexInputBindingDescription& bindingDescription);
     vk::PipelineInputAssemblyStateCreateInfo CreateInputAssembly();
     vk::PipelineViewportStateCreateInfo CreateViewportState();
     vk::PipelineRasterizationStateCreateInfo CreateRasterization();
@@ -59,6 +59,7 @@ private:
 
     std::vector<vk::PipelineShaderStageCreateInfo> shaderStages = std::vector<vk::PipelineShaderStageCreateInfo>(2);
     std::vector<vk::DynamicState> dynamicStates = std::vector<vk::DynamicState>(2);
+    std::vector<vk::VertexInputAttributeDescription> attributeDescription;
 
     vk::RenderPass renderPass{};
     vk::PipelineLayout pipelineLayout{};

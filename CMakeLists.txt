@@ -17,6 +17,7 @@ add_executable(MyOwnEngine
     src/vulkan/Swapchain.cpp
     src/vulkan/SyncObjects.cpp
     src/vulkan/VulkanContext.cpp
+    src/vulkan/BufferHelper.cpp
     src/main.cpp)
 
 target_include_directories(MyOwnEngine
@@ -77,3 +78,4 @@ add_custom_command(
     COMMAND
 	glslc shaders/triangle.frag -o shaders/compiled/triangle.frag.spv
 )
+
