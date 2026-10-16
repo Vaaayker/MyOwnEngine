@@ -6,6 +6,7 @@ add_executable(MyOwnEngine
     src/engine/Camera.cpp
     src/engine/Mesh.cpp
     src/engine/Room.cpp
+    src/engine/Input.cpp
     src/math/mat4.cpp
     src/math/Point3D.cpp
     src/math/Vec3.cpp
@@ -18,6 +19,7 @@ add_executable(MyOwnEngine
     src/vulkan/SyncObjects.cpp
     src/vulkan/VulkanContext.cpp
     src/vulkan/BufferHelper.cpp
+    src/vulkan/DepthResources.cpp
     src/main.cpp)
 
 target_include_directories(MyOwnEngine

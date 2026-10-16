@@ -273,19 +273,38 @@ void GraphicsPipeline::CreateRenderPass(const Swapchain& swapchain)
     colorAttachment.finalLayout = vk::ImageLayout::ePresentSrcKHR;
 
     vk::AttachmentReference colorAttachmentReference{};
-    colorAttachmentReference.attachment = 0;
+    colorAttachmentReference.attachment = 0; 
     colorAttachmentReference.layout = vk::ImageLayout::eColorAttachmentOptimal;
+
+    vk::AttachmentDescription depthAttachment{};
+    depthAttachment.format = vk::Format::eD32Sfloat;
+    depthAttachment.samples = vk::SampleCountFlagBits::e1;
+    depthAttachment.loadOp = vk::AttachmentLoadOp::eClear;
+    depthAttachment.storeOp = vk::AttachmentStoreOp::eDontCare; 
+    depthAttachment.stencilLoadOp = vk::AttachmentLoadOp::eDontCare;
+    depthAttachment.stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
+    depthAttachment.initialLayout = vk::ImageLayout::eUndefined;
+    depthAttachment.finalLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
+
+    vk::AttachmentReference depthAttachmentReference{};
+    depthAttachmentReference.attachment = 1; 
+    depthAttachmentReference.layout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
+
+    attachmentDescriptions = { colorAttachment, depthAttachment };
 
     vk::SubpassDescription subpass{};
     subpass.pipelineBindPoint = vk::PipelineBindPoint::eGraphics;
     subpass.colorAttachmentCount = 1;
     subpass.pColorAttachments = &colorAttachmentReference;
+    subpass.pDepthStencilAttachment = &depthAttachmentReference; 
+
+    subpassDescriptions = { subpass };
 
     vk::RenderPassCreateInfo renderPassInfo{};
-    renderPassInfo.attachmentCount = 1;
-    renderPassInfo.pAttachments = &colorAttachment;
-    renderPassInfo.subpassCount = 1;
-    renderPassInfo.pSubpasses = &subpass;
+    renderPassInfo.attachmentCount = static_cast<uint32_t>(attachmentDescriptions.size());
+    renderPassInfo.pAttachments = attachmentDescriptions.data();
+    renderPassInfo.subpassCount = static_cast<uint32_t>(subpassDescriptions.size());
+    renderPassInfo.pSubpasses = subpassDescriptions.data();
 
     renderPass = device.createRenderPass(renderPassInfo);
 }
@@ -297,6 +316,12 @@ void GraphicsPipeline::CreateGraphicsPipeline([[maybe_unused]]const Swapchain& s
 
     pipelineInfo.stageCount = static_cast<uint32_t>(shaderStages.size());
     pipelineInfo.pStages = shaderStages.data();
+
+    vk::PipelineDepthStencilStateCreateInfo depthStencil{};
+    depthStencil.depthTestEnable = true;
+    depthStencil.depthWriteEnable = true;
+    depthStencil.depthCompareOp = vk::CompareOp::eLess;
+    pipelineInfo.pDepthStencilState = &depthStencil;
 
     vk::VertexInputBindingDescription bindingDescription{};
     bindingDescription.binding = 0;

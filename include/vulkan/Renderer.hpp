@@ -15,6 +15,7 @@ struct FrameResources;
 class BufferHelper;
 struct Vertex;
 class Mesh;
+class DepthResources;
 
 /**
  * @brief Manages frame rendering.
@@ -34,10 +35,12 @@ public:
         const CommandPool& pool,
         const SyncObjects& syncObj,
         const BufferHelper& bufferHelper,
-        const Mesh& mesh);
+        const Mesh& mesh,
+        const DepthResources& depthResources);
     void ReinitializeResources(const Swapchain& swapchain,
         const SyncObjects& syncObj,
-        const GraphicsPipeline& pipeline);
+        const GraphicsPipeline& pipeline,
+        const DepthResources& depthResources);
     void DestroyResources();
     void Destroy();
 
@@ -47,6 +50,8 @@ public:
     bool GetSuboptimal() const;
     void ResetFlags();
 
+    float GetDeltaTime() const;
+
 private:
     void Draw();
     void CreateFrameBuffer();
@@ -55,6 +60,7 @@ private:
     // borowed handles:
     vk::Device device{};
     std::vector<vk::ImageView> swapChainImageViews{}; 
+    std::vector<vk::ImageView> depthImageViews{};
     vk::Extent2D SwapChainExtent{}; 
     vk::RenderPass renderPass{};
     vk::Pipeline graphicsPipeline{};
@@ -70,13 +76,13 @@ private:
     std::uint32_t sizeVertices{};
     std::uint32_t sizeIndices{};
     
-
     // owned by this class:
     std::vector<vk::Framebuffer> swapChainFramebuffers;
-    std::vector<FrameResources> frames = std::vector<FrameResources>(MAX_FRAMES_IN_FLIGHT); 
+    std::vector<FrameResources> frames = std::vector<FrameResources>(MAX_FRAMES_IN_FLIGHT);
+    std::vector<std::array<vk::ImageView, 2>> framebufferAttachments{};
     std::uint32_t currentFrame{};
+    float deltaTime{};
     
-
     bool eErrorOutOfDate{};
     bool eSubOptimal{};
     bool buffersUploaded{};

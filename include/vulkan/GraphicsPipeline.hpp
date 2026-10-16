@@ -60,7 +60,9 @@ private:
     std::vector<vk::PipelineShaderStageCreateInfo> shaderStages = std::vector<vk::PipelineShaderStageCreateInfo>(2);
     std::vector<vk::DynamicState> dynamicStates = std::vector<vk::DynamicState>(2);
     std::vector<vk::VertexInputAttributeDescription> attributeDescription;
-
+    std::vector<vk::AttachmentDescription> attachmentDescriptions{};
+    std::vector<vk::SubpassDescription> subpassDescriptions{};
+    
     vk::RenderPass renderPass{};
     vk::PipelineLayout pipelineLayout{};
     vk::Pipeline graphicsPipeline{};

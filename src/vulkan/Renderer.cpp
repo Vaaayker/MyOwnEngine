@@ -6,6 +6,8 @@
 #include "SyncObjects.hpp"
 #include "BufferHelper.hpp"
 #include "Mesh.hpp"
+#include "DepthResources.hpp"
+#include <iostream>
 
 void Renderer::Create(const VulkanContext& context, 
     const Swapchain& swapchain,
@@ -13,7 +15,8 @@ void Renderer::Create(const VulkanContext& context,
     const CommandPool& pool, 
     const SyncObjects& syncObj,
     const BufferHelper& bufferHelper,
-    const Mesh& mesh)
+    const Mesh& mesh,
+    const DepthResources& depthResources)
 {
     device = context.GetDevice();
     swapChainImageViews = swapchain.GetImageViews();
@@ -30,6 +33,7 @@ void Renderer::Create(const VulkanContext& context,
     StageVertexBuffer = bufferHelper.GetStageVertexBuffer();
     StageIndicesBuffer = bufferHelper.GetStageIndicesBuffer();
     sizeIndices = static_cast<std::uint32_t>(mesh.GetIndices().size() * sizeof(mesh.GetIndices()[0]));
+    depthImageViews = depthResources.GetImageView();
 
     for(std::uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
@@ -46,13 +50,17 @@ void Renderer::Create(const VulkanContext& context,
 
 void Renderer::ReinitializeResources(const Swapchain& swapchain,
         const SyncObjects& syncObj,
-        const GraphicsPipeline& pipeline)
+        const GraphicsPipeline& pipeline,
+        const DepthResources& depthResources)
 {
     // SwapChain
     SwapChain = swapchain.GetSwapchain();
 
     // swapChainImageViews
     swapChainImageViews = swapchain.GetImageViews();
+
+    // depthImageViews
+    depthImageViews = depthResources.GetImageView();
 
     // SwapChainExtent
     SwapChainExtent = swapchain.getExtent();
@@ -107,26 +115,41 @@ void Renderer::Destroy()
 
 void Renderer::CreateFrameBuffer()
 {
-    // func resize has size_type. the size_type sunonym to size_t
     swapChainFramebuffers.resize(swapChainImageViews.size());
-
-    vk::FramebufferCreateInfo frameBufferInfo{};
-    frameBufferInfo.renderPass = renderPass;
-    frameBufferInfo.attachmentCount = 1;
-    frameBufferInfo.width = SwapChainExtent.width;
-    frameBufferInfo.height = SwapChainExtent.height;
-    frameBufferInfo.layers = 1;
+    
+    // Виділяємо пам'ять під масиви аттачментів для кожного фреймбуфера
+    framebufferAttachments.resize(swapChainImageViews.size());
 
     for(size_t i = 0; i < swapChainImageViews.size(); i++)
     {
-        frameBufferInfo.pAttachments = &swapChainImageViews[i];
+        // Заповнюємо елемент вектора для поточного кадру за допомогою std::array
+        framebufferAttachments[i] = std::array<vk::ImageView, 2>{
+            swapChainImageViews[i],
+            depthImageViews[i]
+        };
 
-        swapChainFramebuffers[i] = device.createFramebuffer(frameBufferInfo);
+        vk::FramebufferCreateInfo framebufferInfo{};
+        framebufferInfo.renderPass = renderPass;
+        framebufferInfo.attachmentCount = static_cast<uint32_t>(framebufferAttachments[i].size());
+        
+        // Передаємо вказівник на дані конкретного масиву у векторі
+        framebufferInfo.pAttachments = framebufferAttachments[i].data();
+        
+        framebufferInfo.width = SwapChainExtent.width;
+        framebufferInfo.height = SwapChainExtent.height;
+        framebufferInfo.layers = 1;
+
+        swapChainFramebuffers[i] = device.createFramebuffer(framebufferInfo);
     }
 }
 
 void Renderer::Draw()
 {
+    static uint64_t lastTime = SDL_GetTicks();
+    uint64_t currentTime = SDL_GetTicks();
+    deltaTime = static_cast<float>(currentTime - lastTime) / 1000.0f;
+    lastTime = currentTime;
+    
     if (!buffersUploaded)
     {
         auto& commandBuffer = frames[0].CommandBuffer;
@@ -195,14 +218,9 @@ void Renderer::Draw()
     rect.extent.width = SwapChainExtent.width;
     rect.extent.height = SwapChainExtent.height;
 
-    vk::ClearValue clearColor{};
-    clearColor.color = vk::ClearColorValue(std::array<float, 4>{0.0f, 0.0f, 0.0f, 1.0f});
-
-    vk::RenderPassBeginInfo renderPassInfo{};
-    renderPassInfo.renderPass = this->renderPass;
-    renderPassInfo.renderArea = rect;
-    renderPassInfo.clearValueCount = 1;
-    renderPassInfo.pClearValues = &clearColor;
+    std::array<vk::ClearValue, 2> clearValues{};
+    clearValues[0].color = vk::ClearColorValue(std::array<float, 4>{0.0f, 0.0f, 0.0f, 1.0f}); 
+    clearValues[1].depthStencil = vk::ClearDepthStencilValue{1.0f, 0}; 
 
     std::uint64_t timeout = std::numeric_limits<uint64_t>::max(); 
     auto waitFenceResult = device.waitForFences(frames[currentFrame].InFlightFence, true, timeout); 
@@ -230,8 +248,16 @@ void Renderer::Draw()
     device.resetFences(frames[currentFrame].InFlightFence);
     frames[currentFrame].CommandBuffer.reset();
 
-    frames[currentFrame].CommandBuffer.begin(beginInfo);
+    // Тепер ініціалізуємо renderPassInfo, коли у нас є і clearValues, і валідний imageIndex
+    vk::RenderPassBeginInfo renderPassInfo{};
+    renderPassInfo.renderPass = renderPass;
     renderPassInfo.framebuffer = swapChainFramebuffers[imageIndex];
+    renderPassInfo.renderArea.offset = vk::Offset2D{0, 0};
+    renderPassInfo.renderArea.extent = SwapChainExtent;
+    renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+    renderPassInfo.pClearValues = clearValues.data(); // Використовуємо наш масив із 2 елементів
+
+    frames[currentFrame].CommandBuffer.begin(beginInfo);
     frames[currentFrame].CommandBuffer.beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
     frames[currentFrame].CommandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, graphicsPipeline); // bind pipeline
     frames[currentFrame].CommandBuffer.setViewport(0, viewport); // bind dynamic viewport
@@ -305,6 +331,11 @@ void Renderer::ResetFlags()
 {
     eErrorOutOfDate = false;
     eSubOptimal = false;
+}
+
+float Renderer::GetDeltaTime() const
+{
+    return deltaTime;
 }
 
 
