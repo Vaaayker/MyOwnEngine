@@ -11,6 +11,7 @@
 #include "Renderer.hpp"
 #include "Mesh.hpp"
 #include "BufferHelper.hpp"
+#include "DepthResources.hpp"
 
 /**
  * @brief Manages the main Vulkan objects and device context.
@@ -79,4 +80,5 @@ private:
     GraphicsPipeline pipeline{};
     Mesh mesh{};
     BufferHelper bufferHelper{};
+    DepthResources depthResources{};
 };
