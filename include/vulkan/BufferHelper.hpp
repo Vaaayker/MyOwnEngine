@@ -26,6 +26,11 @@ public:
     vk::Buffer GetStageVertexBuffer() const;
     vk::Buffer GetStageIndicesBuffer() const;
 
+    void CreateUniformBuffers(vk::DeviceSize bufferSize);
+    void UpdateUniformBuffer(uint32_t currentFrame, const void* data, vk::DeviceSize dataSize);
+    vk::Buffer GetUniformBuffer(uint32_t frame) const;
+    vk::DeviceSize GetUniformBufferSize() const;
+
 private:
 // borowed handles
     vk::Device device{};
@@ -37,11 +42,13 @@ private:
     void CreateBuffers();
     void DefineMemoryProperties();
     void AllocateMemory();
+    void DestroyUniformBuffers();
+    
     std::uint32_t FindMemoryTypeIndex(vk::PhysicalDeviceMemoryProperties propertiesDevice, vk::MemoryRequirements requirements, vk::MemoryPropertyFlags requiredProperties);
     vk::Buffer verticesStageBuffer{}; 
     vk::Buffer indicesStageBuffer{};
-    vk::Buffer vertexBuffer{};
-    vk::Buffer indicesBuffer{};
+    vk::Buffer vertexBuffer{}; 
+    vk::Buffer indicesBuffer{}; 
 
     vk::MemoryRequirements requirementsVertexBuffer{};
     vk::MemoryRequirements requirementsStageVertexBuffer{};
@@ -62,4 +69,13 @@ private:
     vk::DeviceMemory verticesStageBufferMemory{};
     vk::DeviceMemory indicesBufferMemory{};
     vk::DeviceMemory indicesStagesBufferMemory{};
+
+    // persistent mapped pointers to staging memory
+    void* verticesStageMapped{nullptr};
+    void* indicesStageMapped{nullptr};
+
+    std::vector<vk::Buffer> uniformBuffers{};
+    std::vector<vk::DeviceMemory> uniformBuffersMemory{};
+    std::vector<void*> uniformBuffersMapped{};
+    vk::DeviceSize uniformBufferSize{};
 };

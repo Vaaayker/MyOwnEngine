@@ -16,6 +16,8 @@ class BufferHelper;
 struct Vertex;
 class Mesh;
 class DepthResources;
+class BufferHelper;
+struct UniformBufferObject;
 
 /**
  * @brief Manages frame rendering.
@@ -44,7 +46,7 @@ public:
     void DestroyResources();
     void Destroy();
 
-    void CallDraw();
+    void CallDraw(BufferHelper& bufferHelper, const UniformBufferObject& ubo);
 
     bool GetErrorOutOfDate() const;
     bool GetSuboptimal() const;
@@ -53,7 +55,7 @@ public:
     float GetDeltaTime() const;
 
 private:
-    void Draw();
+    void Draw(BufferHelper& bufferHelper, const UniformBufferObject& ubo);
     void CreateFrameBuffer();
 
 private:
@@ -64,6 +66,8 @@ private:
     vk::Extent2D SwapChainExtent{}; 
     vk::RenderPass renderPass{};
     vk::Pipeline graphicsPipeline{};
+    vk::PipelineLayout pipelineLayout{};
+    std::vector<vk::DescriptorSet> descriptorSets{};
     vk::SwapchainKHR SwapChain{};
     vk::Queue graphicsQueue{};
     vk::Queue presentQueue{};

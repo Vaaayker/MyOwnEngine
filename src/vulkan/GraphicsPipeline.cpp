@@ -2,18 +2,23 @@
 #include "Swapchain.hpp"
 #include "VulkanContext.hpp"
 #include "Mesh.hpp"
+#include "BufferHelper.hpp"
 #include <stdexcept>
 #include <fstream>
+#include "FrameResources.hpp"
 
 GraphicsPipeline::~GraphicsPipeline()
 {
     Destroy();
 }
 
-void GraphicsPipeline::Create(const Swapchain& swapchain, const VulkanContext& context, const Mesh& mesh)
+void GraphicsPipeline::Create(const Swapchain& swapchain, const VulkanContext& context, const Mesh& mesh, const BufferHelper& bufferHelper)
 {
     // Intitiize device as a borowed handle
     device = context.GetDevice();
+
+    // Descriptor set layout must exist before pipeline layout
+    CreateDescriptors(bufferHelper);
 
     ReinitializeResources(swapchain, mesh);
 }
@@ -40,6 +45,7 @@ void GraphicsPipeline::ReinitializeResources(const Swapchain& swapchain, const M
 void GraphicsPipeline::Destroy() // func for shutdown
 {
     DestroyResources();
+    DestroyDescriptors();
 
     // The device is borrowed, so this class does not destroy it
     device = nullptr;
@@ -252,8 +258,9 @@ void GraphicsPipeline::CreatePipelineLayout()
 {
     vk::PipelineLayoutCreateInfo pipelineLayoutInfo{};
 
-    pipelineLayoutInfo.setLayoutCount = 0;
-    pipelineLayoutInfo.pSetLayouts = nullptr;
+    // set = 0 -> UBO with MVP matrices
+    pipelineLayoutInfo.setLayoutCount = 1;
+    pipelineLayoutInfo.pSetLayouts = &DescriptorSetLayout;
     pipelineLayoutInfo.pushConstantRangeCount = 0;
     pipelineLayoutInfo.pPushConstantRanges = nullptr;
 
@@ -389,4 +396,110 @@ vk::RenderPass GraphicsPipeline::GetRenderPass() const
 vk::Pipeline GraphicsPipeline::GetGraphicsPipeline() const
 {
     return graphicsPipeline;
+}
+
+vk::PipelineLayout GraphicsPipeline::GetPipelineLayout() const
+{
+    return pipelineLayout;
+}
+
+const std::vector<vk::DescriptorSet>& GraphicsPipeline::GetDescriptorSets() const
+{
+    return DescriptorSets;
+}
+
+void GraphicsPipeline::CreateDescriptors(const BufferHelper& bufferHelper)
+{
+    vk::DescriptorSetLayoutBinding UboLayoutBinding{};
+    UboLayoutBinding.binding = 0;
+    UboLayoutBinding.descriptorType = vk::DescriptorType::eUniformBuffer;
+    UboLayoutBinding.descriptorCount = 1;
+    UboLayoutBinding.stageFlags = vk::ShaderStageFlagBits::eVertex;
+    CreateDescriptorSetLayout(UboLayoutBinding);
+
+    vk::DescriptorPoolSize PoolSize{};
+    PoolSize.type = vk::DescriptorType::eUniformBuffer;
+    PoolSize.descriptorCount = MAX_FRAMES_IN_FLIGHT;
+    CreateDescriptorPool(PoolSize);
+
+    AllocateDescriptorSets();
+    UpdateDescriptorSets(bufferHelper);
+}
+
+void GraphicsPipeline::UpdateDescriptorSets(const BufferHelper& bufferHelper)
+{
+    // point every descriptor set to the uniform buffer of its frame
+    for (std::uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+    {
+        vk::DescriptorBufferInfo bufferInfo{};
+        bufferInfo.buffer = bufferHelper.GetUniformBuffer(i);
+        bufferInfo.offset = 0;
+        bufferInfo.range = bufferHelper.GetUniformBufferSize();
+
+        vk::WriteDescriptorSet descriptorWrite{};
+        descriptorWrite.dstSet = DescriptorSets[i];
+        descriptorWrite.dstBinding = 0;
+        descriptorWrite.dstArrayElement = 0;
+        descriptorWrite.descriptorType = vk::DescriptorType::eUniformBuffer;
+        descriptorWrite.descriptorCount = 1;
+        descriptorWrite.pBufferInfo = &bufferInfo;
+
+        device.updateDescriptorSets(descriptorWrite, nullptr);
+    }
+}
+
+void GraphicsPipeline::DestroyDescriptors()
+{
+    if (!device)
+    {
+        return;
+    }
+
+    // destroying the pool also frees all descriptor sets allocated from it
+    if (DescriptorPool)
+    {
+        device.destroyDescriptorPool(DescriptorPool);
+        DescriptorPool = nullptr;
+    }
+    DescriptorSets.clear();
+
+    if (DescriptorSetLayout)
+    {
+        device.destroyDescriptorSetLayout(DescriptorSetLayout);
+        DescriptorSetLayout = nullptr;
+    }
+}
+
+void GraphicsPipeline::CreateDescriptorPool(vk::DescriptorPoolSize& poolSize)
+{
+    vk::DescriptorPoolCreateInfo poolInfo{};
+
+    poolInfo.maxSets = MAX_FRAMES_IN_FLIGHT;
+    poolInfo.poolSizeCount = 1;
+    poolInfo.pPoolSizes = &poolSize; 
+
+    DescriptorPool = device.createDescriptorPool(poolInfo);
+}
+
+void GraphicsPipeline::AllocateDescriptorSets()
+{
+    layouts.fill(DescriptorSetLayout);
+
+    vk::DescriptorSetAllocateInfo allocInfo{};
+
+    allocInfo.descriptorPool = DescriptorPool;
+    allocInfo.descriptorSetCount = MAX_FRAMES_IN_FLIGHT;
+    allocInfo.setSetLayouts(layouts);
+
+    DescriptorSets = device.allocateDescriptorSets(allocInfo);
+}
+
+void GraphicsPipeline::CreateDescriptorSetLayout(vk::DescriptorSetLayoutBinding& uboLayoutBinding)
+{
+    vk::DescriptorSetLayoutCreateInfo layoutInfo{};
+
+    layoutInfo.bindingCount = 1;
+    layoutInfo.pBindings = &uboLayoutBinding;
+
+    DescriptorSetLayout = device.createDescriptorSetLayout(layoutInfo);
 }

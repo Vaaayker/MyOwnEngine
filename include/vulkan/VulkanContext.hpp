@@ -12,6 +12,7 @@
 #include "Mesh.hpp"
 #include "BufferHelper.hpp"
 #include "DepthResources.hpp"
+#include "UniformBufferObject.hpp"
 
 /**
  * @brief Manages the main Vulkan objects and device context.
@@ -56,6 +57,8 @@ private:
     void GetGraphicQueueProperties();
     void GetPresentQueueProperties();
 
+    void UpdateUniformBufferObject();
+
 private:
     vk::Instance instance{};
     vk::SurfaceKHR surface{};
@@ -81,4 +84,6 @@ private:
     Mesh mesh{};
     BufferHelper bufferHelper{};
     DepthResources depthResources{};
+    UniformBufferObject ubo{};
+    float modelAngle{};
 };

@@ -3,6 +3,7 @@
 #include "ConfigLayer.hpp"
 #include <cstring>
 #include <stdexcept>
+#include "UniformBufferObject.hpp"
 
 void VulkanContext::Create(SDL_Window* window)
 {
@@ -28,7 +29,8 @@ void VulkanContext::Create(SDL_Window* window)
     pool.Create(*this);
     sync.Create(*this, swapchain);
     bufferHelper.Create(mesh, *this);
-    pipeline.Create(swapchain, *this, mesh);
+    bufferHelper.CreateUniformBuffers(sizeof(UniformBufferObject));
+    pipeline.Create(swapchain, *this, mesh, bufferHelper);
     renderer.Create(*this, swapchain, pipeline, pool, sync, bufferHelper, mesh, depthResources);
 }
 
@@ -309,7 +311,8 @@ vk::Queue VulkanContext::GetPresentQueue() const
 
 void VulkanContext::MakeDraw(SDL_Window* window)
 {
-    renderer.CallDraw();
+    UpdateUniformBufferObject();
+    renderer.CallDraw(bufferHelper, ubo);
 
     if((renderer.GetErrorOutOfDate()) || (renderer.GetSuboptimal()))
     {
@@ -341,3 +344,15 @@ void VulkanContext::MakeDraw(SDL_Window* window)
     }
 }
 
+
+void VulkanContext::UpdateUniformBufferObject()
+{
+    // test rotation of the model to check that MVP reaches the shader
+    modelAngle += renderer.GetDeltaTime();
+    ubo.Model = mat4{};
+    ubo.Model.RotationZ(modelAngle);
+
+    // identity until the camera provides its matrices
+    ubo.View = mat4{};
+    ubo.Projection = mat4{};
+}
