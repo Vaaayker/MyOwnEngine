@@ -8,6 +8,8 @@
 #include "Mesh.hpp"
 #include "DepthResources.hpp"
 #include <iostream>
+#include "BufferHelper.hpp"
+#include "UniformBufferObject.hpp"
 
 void Renderer::Create(const VulkanContext& context, 
     const Swapchain& swapchain,
@@ -23,6 +25,8 @@ void Renderer::Create(const VulkanContext& context,
     SwapChainExtent = swapchain.getExtent();
     renderPass = pipeline.GetRenderPass();
     graphicsPipeline = pipeline.GetGraphicsPipeline();
+    pipelineLayout = pipeline.GetPipelineLayout();
+    descriptorSets = pipeline.GetDescriptorSets();
     SwapChain = swapchain.GetSwapchain();
     graphicsQueue = context.GetGraphicsQueue();
     presentQueue = context.GetPresentQueue();
@@ -71,7 +75,10 @@ void Renderer::ReinitializeResources(const Swapchain& swapchain,
     // graphicsPipeline
     graphicsPipeline = pipeline.GetGraphicsPipeline();
 
-    // renderFinishedSemaphores 
+    // pipelineLayout
+    pipelineLayout = pipeline.GetPipelineLayout();
+
+    // renderFinishedSemaphores
     renderFinishedSemaphores.resize(swapchain.GetImageViews().size());
     renderFinishedSemaphores = syncObj.getRenderFinishedSemaphore();
 
@@ -93,6 +100,7 @@ void Renderer::DestroyResources()
 
     renderFinishedSemaphores.clear(); 
     graphicsPipeline = nullptr;
+    pipelineLayout = nullptr;
     renderPass = nullptr;
     SwapChainExtent = vk::Extent2D{};
     swapChainImageViews.clear();
@@ -104,6 +112,7 @@ void Renderer::Destroy()
 {
     currentFrame = {};
     frames.clear();
+    descriptorSets.clear();
 
     DestroyResources();
 
@@ -143,7 +152,7 @@ void Renderer::CreateFrameBuffer()
     }
 }
 
-void Renderer::Draw()
+void Renderer::Draw(BufferHelper& bufferHelper, const UniformBufferObject& ubo)
 {
     static uint64_t lastTime = SDL_GetTicks();
     uint64_t currentTime = SDL_GetTicks();
@@ -248,6 +257,8 @@ void Renderer::Draw()
     device.resetFences(frames[currentFrame].InFlightFence);
     frames[currentFrame].CommandBuffer.reset();
 
+    bufferHelper.UpdateUniformBuffer(currentFrame, &ubo, sizeof(ubo));
+
     // Тепер ініціалізуємо renderPassInfo, коли у нас є і clearValues, і валідний imageIndex
     vk::RenderPassBeginInfo renderPassInfo{};
     renderPassInfo.renderPass = renderPass;
@@ -264,6 +275,7 @@ void Renderer::Draw()
     frames[currentFrame].CommandBuffer.setScissor(0, rect); // bind dynamic scissor
     frames[currentFrame].CommandBuffer.bindVertexBuffers(0, VertexBuffer, {0}); // bind vertex buffer
     frames[currentFrame].CommandBuffer.bindIndexBuffer(IndicesBuffer, 0, vk::IndexType::eUint32); // bind index buffer
+    frames[currentFrame].CommandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, 0, descriptorSets[currentFrame], {}); // bind UBO with MVP of this frame
     frames[currentFrame].CommandBuffer.drawIndexed(3, 1, 0, 0, 0); // call the draw indexed
     frames[currentFrame].CommandBuffer.endRenderPass();
     frames[currentFrame].CommandBuffer.end();
@@ -312,9 +324,9 @@ void Renderer::Draw()
     currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
-void Renderer::CallDraw()
+void Renderer::CallDraw(BufferHelper& bufferHelper, const UniformBufferObject& ubo)
 {
-    Draw();
+    Draw(bufferHelper, ubo);
 }
 
 bool Renderer::GetErrorOutOfDate() const

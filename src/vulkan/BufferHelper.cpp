@@ -1,6 +1,10 @@
 #include "BufferHelper.hpp"
 #include "VulkanContext.hpp"
 #include "Mesh.hpp"
+#include "FrameResources.hpp"
+
+#include <cstring>
+#include <stdexcept>
 
 void BufferHelper::Create(const Mesh& mesh, const VulkanContext& context)
 {
@@ -21,6 +25,21 @@ void BufferHelper::Create(const Mesh& mesh, const VulkanContext& context)
 // destroy 
 void BufferHelper::Destroy()
 {
+    DestroyUniformBuffers();
+
+    // unmap persistent staging memory
+    if (verticesStageMapped != nullptr)
+    {
+        device.unmapMemory(verticesStageBufferMemory);
+        verticesStageMapped = nullptr;
+    }
+
+    if (indicesStageMapped != nullptr)
+    {
+        device.unmapMemory(indicesStagesBufferMemory);
+        indicesStageMapped = nullptr;
+    }
+
     // destroy buffers
     device.destroyBuffer(indicesStageBuffer);
     device.freeMemory(indicesStagesBufferMemory);
@@ -81,9 +100,9 @@ void BufferHelper::AllocateMemory()
     verticesStageBufferMemory = device.allocateMemory(vertexStagesBufferInfo);
     device.bindBufferMemory(verticesStageBuffer, verticesStageBufferMemory, 0);
 
-    void* dataVerices = device.mapMemory(verticesStageBufferMemory, 0, sizeVertices);
-    std::memcpy(dataVerices, vertices.data(), sizeVertices);
-    device.unmapMemory(verticesStageBufferMemory);
+    // persistent mapping - unmap only in Destroy()
+    verticesStageMapped = device.mapMemory(verticesStageBufferMemory, 0, sizeVertices);
+    std::memcpy(verticesStageMapped, vertices.data(), sizeVertices);
 
     vk::MemoryAllocateInfo indicesBufferInfo{}; 
     indicesBufferInfo.allocationSize = sizeIndices;
@@ -97,9 +116,9 @@ void BufferHelper::AllocateMemory()
     indicesStagesBufferMemory = device.allocateMemory(indicesStageBufferInfo);
     device.bindBufferMemory(indicesStageBuffer, indicesStagesBufferMemory, 0);
 
-    void* dataIndices = device.mapMemory(indicesStagesBufferMemory, 0, sizeIndices);
-    std::memcpy(dataIndices, indices.data(), sizeIndices);
-    device.unmapMemory(indicesStagesBufferMemory);
+    // persistent mapping - unmap only in Destroy()
+    indicesStageMapped = device.mapMemory(indicesStagesBufferMemory, 0, sizeIndices);
+    std::memcpy(indicesStageMapped, indices.data(), sizeIndices);
 }
 
 void BufferHelper::DefineMemoryProperties()
@@ -143,4 +162,123 @@ vk::Buffer BufferHelper::GetStageVertexBuffer() const
 vk::Buffer BufferHelper::GetStageIndicesBuffer() const
 {
     return indicesStageBuffer;
+}
+
+void BufferHelper::CreateUniformBuffers(vk::DeviceSize bufferSize)
+{
+    uniformBufferSize = bufferSize;
+
+    uniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+    uniformBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
+    uniformBuffersMapped.resize(MAX_FRAMES_IN_FLIGHT, nullptr);
+
+    memoryProperties = physicalDevice.getMemoryProperties();
+
+    vk::MemoryPropertyFlags properties =
+        vk::MemoryPropertyFlagBits::eHostVisible |
+        vk::MemoryPropertyFlagBits::eHostCoherent;
+
+    for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+    {
+        // Create uniform buffer
+        vk::BufferCreateInfo bufferInfo{};
+
+        bufferInfo.size = bufferSize;
+        bufferInfo.usage = vk::BufferUsageFlagBits::eUniformBuffer;
+        bufferInfo.sharingMode = vk::SharingMode::eExclusive;
+
+        uniformBuffers[i] = device.createBuffer(bufferInfo);
+
+        // Get memory requirements
+        vk::MemoryRequirements requirements =
+            device.getBufferMemoryRequirements(uniformBuffers[i]);
+
+        // Find suitable memory type
+        uint32_t memoryTypeIndex =
+            FindMemoryTypeIndex(memoryProperties, requirements, properties);
+
+        // Allocate memory
+        vk::MemoryAllocateInfo memoryInfo{};
+
+        memoryInfo.allocationSize = requirements.size;
+        memoryInfo.memoryTypeIndex = memoryTypeIndex;
+
+        uniformBuffersMemory[i] = device.allocateMemory(memoryInfo);
+
+        // Bind memory to buffer
+        device.bindBufferMemory(
+            uniformBuffers[i],
+            uniformBuffersMemory[i],
+            0
+        );
+
+        // Persistent mapping
+        uniformBuffersMapped[i] = device.mapMemory(
+            uniformBuffersMemory[i],
+            0,
+            bufferSize
+        );
+    }
+}
+
+void BufferHelper::UpdateUniformBuffer(uint32_t currentFrame, const void* data, vk::DeviceSize dataSize)
+{
+    if (currentFrame >= uniformBuffersMapped.size())
+    {
+        throw std::out_of_range("Invalid uniform buffer frame index");
+    }
+
+    if (data == nullptr || dataSize > uniformBufferSize)
+    {
+        throw std::runtime_error("Invalid uniform buffer update data");
+    }
+
+    std::memcpy(
+        uniformBuffersMapped[currentFrame],
+        data,
+        static_cast<size_t>(dataSize)
+    );
+}
+
+vk::Buffer BufferHelper::GetUniformBuffer(uint32_t frame) const
+{
+    return uniformBuffers.at(frame);
+}
+
+vk::DeviceSize BufferHelper::GetUniformBufferSize() const
+{
+    return uniformBufferSize;
+}
+
+void BufferHelper::DestroyUniformBuffers()
+{
+    for (uint32_t i = 0; i < uniformBuffers.size(); i++)
+    {
+        // Unmap memory
+        if (uniformBuffersMapped[i] != nullptr)
+        {
+            device.unmapMemory(uniformBuffersMemory[i]);
+            uniformBuffersMapped[i] = nullptr;
+        }
+
+        // Destroy buffer
+        if (uniformBuffers[i])
+        {
+            device.destroyBuffer(uniformBuffers[i]);
+            uniformBuffers[i] = nullptr;
+        }
+
+        // Free memory
+        if (uniformBuffersMemory[i])
+        {
+            device.freeMemory(uniformBuffersMemory[i]);
+            uniformBuffersMemory[i] = nullptr;
+        }
+    }
+
+    uniformBuffers.clear();
+    uniformBuffersMemory.clear();
+    uniformBuffersMapped.clear();
+
+    uniformBufferSize = 0;
 }

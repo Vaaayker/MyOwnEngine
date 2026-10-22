@@ -2,10 +2,12 @@
 #include <vulkan/vulkan.hpp>
 #include <vector>
 #include <string>
+#include "FrameResources.hpp"
 
 class Swapchain; // forward declaration
 class VulkanContext; // forward declaration
 class Mesh; // forward declaration
+class BufferHelper; // forward declaration
 
 /**
  * @brief Creates and stores the Vulkan graphics pipeline.
@@ -25,7 +27,7 @@ public:
     GraphicsPipeline& operator=(const GraphicsPipeline&) = delete;
     ~GraphicsPipeline();
 
-    void Create(const Swapchain& swapchain, const VulkanContext& context, const Mesh& mesh);
+    void Create(const Swapchain& swapchain, const VulkanContext& context, const Mesh& mesh, const BufferHelper& bufferHelper);
     void ReinitializeResources(const Swapchain& swapchain, const Mesh& mesh);
     void Destroy();
     void DestroyResources();
@@ -33,6 +35,8 @@ public:
     // getters
     vk::RenderPass GetRenderPass() const;
     vk::Pipeline GetGraphicsPipeline() const;
+    vk::PipelineLayout GetPipelineLayout() const;
+    const std::vector<vk::DescriptorSet>& GetDescriptorSets() const;
 
 private:
     std::vector<uint32_t> ReadShaderFile(const std::string& filename) const;
@@ -41,6 +45,13 @@ private:
     void CreatePipelineLayout();
     void CreateRenderPass(const Swapchain& swapchain);
     void CreateGraphicsPipeline(const Swapchain& swapchain, const Mesh& mesh);
+    void CreateDescriptorPool(vk::DescriptorPoolSize& poolSize);
+    void AllocateDescriptorSets();
+    void CreateDescriptorSetLayout(vk::DescriptorSetLayoutBinding& uboLayoutBinding);
+    // descriptors don't depend on swapchain, so they live from Create() to Destroy()
+    void CreateDescriptors(const BufferHelper& bufferHelper);
+    void UpdateDescriptorSets(const BufferHelper& bufferHelper);
+    void DestroyDescriptors();
     // Create the pipeline state structures and keep them alive
     // while GraphicsPipelineCreateInfo uses pointers to them.
     vk::PipelineVertexInputStateCreateInfo CreateVertexInput(std::vector<vk::VertexInputAttributeDescription>& attributeDescriptions, vk::VertexInputBindingDescription& bindingDescription);
@@ -62,8 +73,12 @@ private:
     std::vector<vk::VertexInputAttributeDescription> attributeDescription;
     std::vector<vk::AttachmentDescription> attachmentDescriptions{};
     std::vector<vk::SubpassDescription> subpassDescriptions{};
+    std::array<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT> layouts{};
     
     vk::RenderPass renderPass{};
     vk::PipelineLayout pipelineLayout{};
     vk::Pipeline graphicsPipeline{};
+    vk::DescriptorPool DescriptorPool{};
+    std::vector<vk::DescriptorSet> DescriptorSets{};
+    vk::DescriptorSetLayout DescriptorSetLayout;
 };

@@ -20,7 +20,8 @@ add_executable(MyOwnEngine
     src/vulkan/VulkanContext.cpp
     src/vulkan/BufferHelper.cpp
     src/vulkan/DepthResources.cpp
-    src/main.cpp)
+    src/main.cpp
+    )
 
 target_include_directories(MyOwnEngine
     PRIVATE
